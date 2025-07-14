@@ -20,14 +20,12 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class BasicDatabaseTest {
     
-    private static final Logger logger = LoggerFactory.getLogger(BasicDatabaseTest.class);
-    
     private IDatabaseConnection connection;
     private IDataSet testDataSet;
     
     @BeforeEach
     void setUp() throws Exception {
-        logger.info("Setting up database connection and test data");
+        System.out.println("Setting up database connection and test data");
         
         // Create database connection
         connection = DatabaseTestUtils.createDatabaseConnection();
@@ -41,19 +39,19 @@ public class BasicDatabaseTest {
         // Commit the transaction
         DatabaseTestUtils.commit(connection);
         
-        logger.info("Test setup completed");
+        System.out.println("Test setup completed");
     }
     
     @AfterEach
     void tearDown() throws Exception {
         if (connection != null) {
             try {
-                logger.info("Cleaning up test data");
+                System.out.println("Cleaning up test data");
                 // Clean up test data
                 DatabaseTestUtils.cleanupTestData(connection, testDataSet);
                 DatabaseTestUtils.commit(connection);
                 
-                logger.info("Test cleanup completed");
+                System.out.println("Test cleanup completed");
             } finally {
                 DatabaseTestUtils.closeConnection(connection);
             }
@@ -68,7 +66,7 @@ public class BasicDatabaseTest {
         assertNotNull(connection.getConnection(), "JDBC connection should not be null");
         assertFalse(connection.getConnection().isClosed(), "Connection should be open");
         
-        logger.info("Database connection test passed");
+        System.out.println("Database connection test passed");
     }
     
     @Test
@@ -85,10 +83,10 @@ public class BasicDatabaseTest {
             assertNotNull(table, "Table " + tableName + " should exist in dataset");
             assertTrue(table.getRowCount() > 0, "Table " + tableName + " should have data");
             
-            logger.info("Table {}: {} rows", tableName, table.getRowCount());
+            System.out.println("Table " + tableName + ": " + table.getRowCount() + " rows");
         }
         
-        logger.info("Dataset loading test passed");
+        System.out.println("Dataset loading test passed");
     }
     
     @Test
@@ -115,7 +113,7 @@ public class BasicDatabaseTest {
             assertEquals(3, rs.getInt(1), "Database should contain 3 active users");
         }
         
-        logger.info("Users table data test passed");
+        System.out.println("Users table data test passed");
     }
     
     @Test
@@ -141,7 +139,7 @@ public class BasicDatabaseTest {
             assertEquals(3, rs.getInt(1), "Database should contain 3 available products");
         }
         
-        logger.info("Products table data test passed");
+        System.out.println("Products table data test passed");
     }
     
     @Test
@@ -178,7 +176,7 @@ public class BasicDatabaseTest {
             assertEquals(1, rs.getInt("item_count"));
         }
         
-        logger.info("Orders and order items relationship test passed");
+        System.out.println("Orders and order items relationship test passed");
     }
     
     @Test
@@ -205,7 +203,7 @@ public class BasicDatabaseTest {
                     "Average rating should be 4.0");
         }
         
-        logger.info("Reviews table data test passed");
+        System.out.println("Reviews table data test passed");
     }
     
     @Test
@@ -238,6 +236,49 @@ public class BasicDatabaseTest {
             assertEquals(0, rs.getInt("order_count"));
         }
         
-        logger.info("Database constraints test passed");
+        System.out.println("Database constraints test passed");
+    }
+
+    @Test
+    @Order(100)
+    @DisplayName("Insert Performance with Large Dataset")
+    void testInsertPerformanceLargeDataset() throws Exception {
+        System.out.println("Loading large dataset for insert performance test");
+        IDataSet largeDataSet = DatabaseTestUtils.loadDataSet("datasets/large-dataset.xml");
+        long start = System.currentTimeMillis();
+        DatabaseTestUtils.setupTestData(connection, largeDataSet);
+        DatabaseTestUtils.commit(connection);
+        long elapsed = System.currentTimeMillis() - start;
+        System.out.println("Insert performance: " + elapsed + " ms");
+        // Assert insert within 30 seconds
+        assertTrue(elapsed < 30_000, "Insert should complete within 30 seconds, actual: " + elapsed + " ms");
+    }
+
+    @Test
+    @Order(101)
+    @DisplayName("Query Performance with Large Dataset")
+    void testQueryPerformanceLargeDataset() throws Exception {
+        System.out.println("Loading large dataset for query performance test");
+        IDataSet largeDataSet = DatabaseTestUtils.loadDataSet("datasets/large-dataset.xml");
+        DatabaseTestUtils.setupTestData(connection, largeDataSet);
+        DatabaseTestUtils.commit(connection);
+        long start = System.currentTimeMillis();
+        // Example: count users, products, orders, order_items, reviews
+        int userCount = 0, productCount = 0, orderCount = 0, orderItemCount = 0, reviewCount = 0;
+        try (PreparedStatement stmt = connection.getConnection().prepareStatement(
+                "SELECT (SELECT COUNT(*) FROM users), (SELECT COUNT(*) FROM products), (SELECT COUNT(*) FROM orders), (SELECT COUNT(*) FROM order_items), (SELECT COUNT(*) FROM reviews)")) {
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                userCount = rs.getInt(1);
+                productCount = rs.getInt(2);
+                orderCount = rs.getInt(3);
+                orderItemCount = rs.getInt(4);
+                reviewCount = rs.getInt(5);
+            }
+        }
+        long elapsed = System.currentTimeMillis() - start;
+        System.out.println("Query performance: " + elapsed + " ms (users=" + userCount + ", products=" + productCount + ", orders=" + orderCount + ", order_items=" + orderItemCount + ", reviews=" + reviewCount + ")");
+        // Assert query within 10 seconds
+        assertTrue(elapsed < 10_000, "Query should complete within 10 seconds, actual: " + elapsed + " ms");
     }
 } 

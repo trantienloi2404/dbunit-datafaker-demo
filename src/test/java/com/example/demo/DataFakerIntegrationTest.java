@@ -21,14 +21,12 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class DataFakerIntegrationTest {
     
-    private static final Logger logger = LoggerFactory.getLogger(DataFakerIntegrationTest.class);
-    
     private IDatabaseConnection connection;
     private TestDataGenerator dataGenerator;
     
     @BeforeEach
     void setUp() throws Exception {
-        logger.info("Setting up DataFaker integration test");
+        System.out.println("Setting up DataFaker integration test");
         
         // Create database connection
         connection = DatabaseTestUtils.createDatabaseConnection();
@@ -36,14 +34,14 @@ public class DataFakerIntegrationTest {
         // Create data generator with fixed seed for reproducible tests
         dataGenerator = new TestDataGenerator(12345L);
         
-        logger.info("DataFaker integration test setup completed");
+        System.out.println("DataFaker integration test setup completed");
     }
     
     @AfterEach
     void tearDown() throws Exception {
         if (connection != null) {
             try {
-                logger.info("Cleaning up test data");
+                System.out.println("Cleaning up test data");
                 // Truncate all tables to clean up
                 String[] tables = {"reviews", "order_items", "orders", "products", "users"};
                 for (String table : tables) {
@@ -53,7 +51,7 @@ public class DataFakerIntegrationTest {
                     }
                 }
                 DatabaseTestUtils.commit(connection);
-                logger.info("Test cleanup completed");
+                System.out.println("Test cleanup completed");
             } finally {
                 DatabaseTestUtils.closeConnection(connection);
             }
@@ -64,7 +62,7 @@ public class DataFakerIntegrationTest {
     @Order(1)
     @DisplayName("Test Small Dataset Generation")
     void testSmallDatasetGeneration() throws Exception {
-        logger.info("Testing small dataset generation");
+        System.out.println("Testing small dataset generation");
         
         // Generate small dataset
         IDataSet dataSet = dataGenerator.generateCompleteDataSet(5, 8, 3);
@@ -90,14 +88,14 @@ public class DataFakerIntegrationTest {
             assertEquals(5, rs.getInt(1), "Database should contain 5 users");
         }
         
-        logger.info("Small dataset generation test passed");
+        System.out.println("Small dataset generation test passed");
     }
     
     @Test
     @Order(2)
     @DisplayName("Test Medium Dataset Generation")
     void testMediumDatasetGeneration() throws Exception {
-        logger.info("Testing medium dataset generation");
+        System.out.println("Testing medium dataset generation");
         
         // Generate medium dataset
         IDataSet dataSet = dataGenerator.generateCompleteDataSet(50, 100, 75);
@@ -128,14 +126,14 @@ public class DataFakerIntegrationTest {
             assertEquals(75, rs.getInt(1), "Database should contain 75 orders");
         }
         
-        logger.info("Medium dataset generation test passed");
+        System.out.println("Medium dataset generation test passed");
     }
     
     @Test
     @Order(3)
     @DisplayName("Test Data Uniqueness and Integrity")
     void testDataUniquenessAndIntegrity() throws Exception {
-        logger.info("Testing data uniqueness and integrity");
+        System.out.println("Testing data uniqueness and integrity");
         
         // Generate dataset
         IDataSet dataSet = dataGenerator.generateCompleteDataSet(20, 30, 15);
@@ -178,14 +176,14 @@ public class DataFakerIntegrationTest {
             assertEquals(0, rs.getInt(1), "All orders should reference valid users");
         }
         
-        logger.info("Data uniqueness and integrity test passed");
+        System.out.println("Data uniqueness and integrity test passed");
     }
     
     @Test
     @Order(4)
     @DisplayName("Test Data Realism and Variety")
     void testDataRealismAndVariety() throws Exception {
-        logger.info("Testing data realism and variety");
+        System.out.println("Testing data realism and variety");
         
         // Generate dataset
         IDataSet dataSet = dataGenerator.generateCompleteDataSet(25, 40, 20);
@@ -244,14 +242,14 @@ public class DataFakerIntegrationTest {
             assertTrue(rs.getInt("rating_variety") > 2, "Should have variety in review ratings");
         }
         
-        logger.info("Data realism and variety test passed");
+        System.out.println("Data realism and variety test passed");
     }
     
     @Test
     @Order(5)
     @DisplayName("Test Large Dataset Performance")
     void testLargeDatasetPerformance() throws Exception {
-        logger.info("Testing large dataset performance");
+        System.out.println("Testing large dataset performance");
         
         long startTime = System.currentTimeMillis();
         
@@ -259,7 +257,7 @@ public class DataFakerIntegrationTest {
         IDataSet dataSet = dataGenerator.generateCompleteDataSet(100, 200, 150);
         
         long generationTime = System.currentTimeMillis() - startTime;
-        logger.info("Dataset generation took {} ms", generationTime);
+        System.out.println("Dataset generation took " + generationTime + " ms");
         
         // Insert data
         startTime = System.currentTimeMillis();
@@ -267,7 +265,7 @@ public class DataFakerIntegrationTest {
         DatabaseTestUtils.commit(connection);
         
         long insertionTime = System.currentTimeMillis() - startTime;
-        logger.info("Data insertion took {} ms", insertionTime);
+        System.out.println("Data insertion took " + insertionTime + " ms");
         
         // Verify counts
         try (PreparedStatement stmt = connection.getConnection()
@@ -287,24 +285,21 @@ public class DataFakerIntegrationTest {
             assertTrue(rs.getInt("order_item_count") >= 150); // At least one item per order
             assertTrue(rs.getInt("review_count") > 0);
             
-            logger.info("Final counts - Users: {}, Products: {}, Orders: {}, Order Items: {}, Reviews: {}",
-                    rs.getInt("user_count"), rs.getInt("product_count"), 
-                    rs.getInt("order_count"), rs.getInt("order_item_count"), 
-                    rs.getInt("review_count"));
+            System.out.println("Final counts - Users: " + rs.getInt("user_count") + ", Products: " + rs.getInt("product_count") + ", Orders: " + rs.getInt("order_count") + ", Order Items: " + rs.getInt("order_item_count") + ", Reviews: " + rs.getInt("review_count"));
         }
         
         // Performance assertions
         assertTrue(generationTime < 10000, "Dataset generation should complete within 10 seconds");
         assertTrue(insertionTime < 30000, "Data insertion should complete within 30 seconds");
         
-        logger.info("Large dataset performance test passed");
+        System.out.println("Large dataset performance test passed");
     }
     
     @Test
     @Order(6)
     @DisplayName("Test Individual Table Generation")
     void testIndividualTableGeneration() throws Exception {
-        logger.info("Testing individual table generation");
+        System.out.println("Testing individual table generation");
         
         // Test users table generation only
         IDataSet usersDataSet = new org.dbunit.dataset.DefaultDataSet();
@@ -342,6 +337,6 @@ public class DataFakerIntegrationTest {
             assertEquals(15, rs.getInt(1), "Should have 15 products");
         }
         
-        logger.info("Individual table generation test passed");
+        System.out.println("Individual table generation test passed");
     }
 } 

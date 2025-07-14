@@ -395,4 +395,19 @@ public class TestDataGenerator {
         usedOrderNumbers.add(orderNumber);
         return orderNumber;
     }
+
+    // public static void main(String[] args) throws Exception {
+    //     // Parameters for large dataset
+    //     int userCount = 1_000;
+    //     int productCount = 300;
+    //     int orderCount = 800;
+    //     System.out.println("Generating large dataset: " + userCount + " users, " + productCount + " products, " + orderCount + " orders");
+    //     TestDataGenerator generator = new TestDataGenerator(20240714L); // fixed seed for reproducibility
+    //     IDataSet dataSet = generator.generateCompleteDataSet(userCount, productCount, orderCount);
+    //     System.out.println("Writing dataset to datasets/large-dataset.xml ...");
+    //     java.io.File outFile = new java.io.File("src/test/resources/datasets/large-dataset.xml");
+    //     outFile.getParentFile().mkdirs();
+    //     org.dbunit.dataset.xml.FlatXmlDataSet.write(dataSet, new java.io.FileOutputStream(outFile));
+    //     System.out.println("Done. File written: " + outFile.getAbsolutePath());
+    // }
 } 

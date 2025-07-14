@@ -5,8 +5,6 @@ import org.dbunit.database.IDatabaseConnection;
 import org.dbunit.dataset.IDataSet;
 import org.dbunit.dataset.xml.FlatXmlDataSetBuilder;
 import org.dbunit.operation.DatabaseOperation;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
 import java.sql.Connection;
@@ -18,8 +16,6 @@ import java.sql.SQLException;
  * Provides methods for database connection, data setup, and cleanup.
  */
 public class DatabaseTestUtils {
-    
-    private static final Logger logger = LoggerFactory.getLogger(DatabaseTestUtils.class);
     
     // Database connection parameters
     private static final String DB_URL = "jdbc:mysql://localhost:3306/testdb";
@@ -94,11 +90,11 @@ public class DatabaseTestUtils {
      */
     public static void setupTestData(IDatabaseConnection connection, IDataSet dataSet) throws Exception {
         try {
-            logger.info("Setting up test data...");
+            System.out.println("Setting up test data...");
             DatabaseOperation.CLEAN_INSERT.execute(connection, dataSet);
-            logger.info("Test data setup completed");
+            System.out.println("Test data setup completed");
         } catch (Exception e) {
-            logger.error("Failed to setup test data", e);
+            System.err.println("Failed to setup test data: " + e.getMessage());
             throw e;
         }
     }
@@ -112,11 +108,11 @@ public class DatabaseTestUtils {
      */
     public static void cleanupTestData(IDatabaseConnection connection, IDataSet dataSet) throws Exception {
         try {
-            logger.info("Cleaning up test data...");
+            System.out.println("Cleaning up test data...");
             DatabaseOperation.DELETE_ALL.execute(connection, dataSet);
-            logger.info("Test data cleanup completed");
+            System.out.println("Test data cleanup completed");
         } catch (Exception e) {
-            logger.error("Failed to cleanup test data", e);
+            System.err.println("Failed to cleanup test data: " + e.getMessage());
             throw e;
         }
     }
@@ -130,11 +126,11 @@ public class DatabaseTestUtils {
      */
     public static void truncateTables(IDatabaseConnection connection, IDataSet dataSet) throws Exception {
         try {
-            logger.info("Truncating tables...");
+            System.out.println("Truncating tables...");
             DatabaseOperation.TRUNCATE_TABLE.execute(connection, dataSet);
-            logger.info("Table truncation completed");
+            System.out.println("Table truncation completed");
         } catch (Exception e) {
-            logger.error("Failed to truncate tables", e);
+            System.err.println("Failed to truncate tables: " + e.getMessage());
             throw e;
         }
     }
@@ -148,9 +144,9 @@ public class DatabaseTestUtils {
         if (connection != null) {
             try {
                 connection.close();
-                logger.debug("Database connection closed");
+                System.out.println("Database connection closed");
             } catch (SQLException e) {
-                logger.warn("Error closing database connection", e);
+                System.err.println("Error closing database connection: " + e.getMessage());
             }
         }
     }
