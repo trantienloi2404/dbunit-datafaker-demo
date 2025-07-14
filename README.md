@@ -267,26 +267,6 @@ mvn test -Dlogback.configurationFile=src/test/resources/logback-test.xml
 - Data insertion: ~30-45 seconds for large datasets
 - Complex queries: ~1-5 seconds
 
-## 🔄 Continuous Integration
-
-### GitHub Actions Example
-
-```yaml
-name: Database Tests
-on: [push, pull_request]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Set up JDK 11
-        uses: actions/setup-java@v2
-        with:
-          java-version: '11'
-      - name: Run tests
-        run: mvn test
-```
-
 ## 📚 Learning Resources
 
 ### DBUnit
@@ -300,19 +280,3 @@ jobs:
 ### Testcontainers
 - [Testcontainers Documentation](https://www.testcontainers.org/)
 - [MySQL Testcontainers Module](https://www.testcontainers.org/modules/databases/mysql/)
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass
-5. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🏷️ Tags
-
-`database-testing` `dbunit` `datafaker` `mysql` `docker` `testcontainers` `junit5` `maven` `integration-testing` 
