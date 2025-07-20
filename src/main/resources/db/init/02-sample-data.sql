@@ -1,5 +1,5 @@
 -- Sample data for DBUnit and DataFaker demo
-
+SET FOREIGN_KEY_CHECKS=0;
 -- Insert sample users
 INSERT INTO users (username, email, first_name, last_name, date_of_birth, phone_number) VALUES
 ('john_doe', 'john.doe@example.com', 'John', 'Doe', '1990-05-15', '+1-555-0101'),
@@ -54,4 +54,9 @@ INSERT INTO reviews (user_id, product_id, rating, title, comment, is_verified_pu
 (4, 5, 4, 'Good headphones', 'Sound quality is great, noise cancellation works well.', TRUE),
 (4, 6, 4, 'Nice desk lamp', 'Bright LED light, adjustable. Good for reading.', TRUE),
 (5, 7, 5, 'Best water bottle', 'Keeps drinks cold all day. Perfect for workouts!', TRUE),
-(5, 8, 4, 'Comfortable shoes', 'Good for running, nice cushioning. Fits well.', TRUE); 
+(5, 8, 4, 'Comfortable shoes', 'Good for running, nice cushioning. Fits well.', TRUE);
+SET FOREIGN_KEY_CHECKS=1;
+
+
+-- docker exec -i dbunit-demo-mysql mysql -u testuser -ptestpass -e "DROP DATABASE IF EXISTS testdb;" && docker exec -i dbunit-demo-mysql mysql -u testuser -ptestpass -e "CREATE DATABASE testdb;" && docker exec -i dbunit-demo-mysql mysql -u testuser -ptestpass testdb < 01-create-schema.sql && docker exec -i dbunit-demo-mysql mysql -u testuser -ptestpass testdb < 02-sample-data.sql
+
