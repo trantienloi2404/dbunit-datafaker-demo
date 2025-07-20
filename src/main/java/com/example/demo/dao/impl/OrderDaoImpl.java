@@ -225,7 +225,13 @@ public class OrderDaoImpl implements OrderDao {
     
     @Override
     public void updateStatus(Long orderId, String status) throws SQLException {
-        String sql = "UPDATE orders SET status = ? WHERE id = ?";
+        String sql;
+        if ("SHIPPED".equals(status)) {
+            // When status is SHIPPED, also update the shipped_date
+            sql = "UPDATE orders SET status = ?, shipped_date = CURRENT_TIMESTAMP WHERE id = ?";
+        } else {
+            sql = "UPDATE orders SET status = ? WHERE id = ?";
+        }
         
         try (PreparedStatement stmt = connectionManager.getConnection().prepareStatement(sql)) {
             stmt.setString(1, status);

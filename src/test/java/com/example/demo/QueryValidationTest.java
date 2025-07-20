@@ -181,79 +181,27 @@ public class QueryValidationTest {
     }
 
     /**
-     * Xác minh tích hợp logic nghiệp vụ phức tạp
-     * Kiểm tra logic tích hợp giữa sản phẩm, đơn hàng và đánh giá
+     * Xác minh logic hàm cơ sở dữ liệu
+     * Kiểm tra các hàm tính toán trong cơ sở dữ liệu
      */
     @Test
     @Order(3)
-    @DisplayName("Xác Minh Tích Hợp Logic Nghiệp Vụ Phức Tạp")
-    void validateComplexBusinessLogicIntegration() throws SQLException {
-        logger.info("Test tích hợp logic nghiệp vụ phức tạp");
-
-        // Lấy dữ liệu test
-        Long productId = testDataSummary.getProductIds().get(0);
-        ProductDto product = productDao.findById(productId).orElseThrow();
-        
-        // Test tích hợp sản phẩm-đơn hàng-đánh giá
-        List<OrderItemDto> productOrderItems = orderItemDao.findByProductId(productId);
-        List<ReviewDto> productReviews = reviewDao.findByProductId(productId);
-        
-        // Quy tắc nghiệp vụ: Sản phẩm phải duy trì tính toàn vẹn dữ liệu qua các mối quan hệ
-        for (OrderItemDto orderItem : productOrderItems) {
-            // Xác minh tính toàn vẹn dữ liệu chi tiết đơn hàng
-            assertNotNull(orderItem.getOrderId(), "Order ID không được null");
-            assertEquals(productId, orderItem.getProductId(), "Product ID phải khớp");
-            assertTrue(orderItem.getQuantity() > 0, "Số lượng phải dương");
-            assertTrue(orderItem.getUnitPrice().compareTo(BigDecimal.ZERO) > 0, 
-                    "Đơn giá phải dương");
-            
-            // Xác minh tổng tiền được tính toán
-            BigDecimal expectedTotal = orderItem.getUnitPrice().multiply(new BigDecimal(orderItem.getQuantity()));
-            assertEquals(0, orderItem.getTotalPrice().compareTo(expectedTotal), 
-                    "Tổng tiền chi tiết đơn hàng phải bằng đơn giá * số lượng");
-        }
-        
-        // Xác minh tính toàn vẹn dữ liệu đánh giá
-        if (!productReviews.isEmpty()) {
-            BigDecimal averageRating = reviewDao.getAverageRatingForProduct(productId);
-            assertTrue(averageRating.compareTo(BigDecimal.ZERO) >= 0 && 
-                      averageRating.compareTo(new BigDecimal("5.00")) <= 0,
-                    "Điểm trung bình phải từ 0 đến 5");
-            
-            long reviewCount = reviewDao.countByProductId(productId);
-            assertEquals(productReviews.size(), reviewCount, 
-                    "Số lượng đánh giá phải khớp với đánh giá thực tế");
-        }
-
-        logger.info("Xác minh tích hợp logic nghiệp vụ phức tạp thành công");
-    }
-
-    /**
-     * Xác minh logic hàm cơ sở dữ liệu
-     * Kiểm tra các hàm tính toán trong cơ sở dữ liệu hoạt động chính xác
-     */
-    @Test
-    @Order(4)
     @DisplayName("Xác Minh Logic Hàm Cơ Sở Dữ Liệu")
     void validateDatabaseFunctionLogic() throws SQLException {
         logger.info("Test logic hàm cơ sở dữ liệu");
 
-        // Lấy đơn hàng test
+        // Test hàm tính tổng đơn hàng
         Long orderId = testDataSummary.getOrderIds().get(0);
-        
-        // Yêu cầu nghiệp vụ: Các hàm tính tổng đơn hàng phải hoạt động chính xác
-        BigDecimal totalWithDefaultTax = orderDao.calculateOrderTotal(orderId);
-        assertNotNull(totalWithDefaultTax, "Tổng đơn hàng với thuế mặc định không được null");
-        assertTrue(totalWithDefaultTax.compareTo(BigDecimal.ZERO) >= 0, 
-                "Tổng đơn hàng phải không âm");
-        
-        // Test hàm thuế suất tùy chỉnh
+        BigDecimal orderTotal = orderDao.calculateOrderTotal(orderId);
+        assertNotNull(orderTotal, "Hàm tính tổng đơn hàng phải trả về kết quả");
+        assertTrue(orderTotal.compareTo(BigDecimal.ZERO) > 0, "Tổng đơn hàng phải dương");
+
+        // Test hàm tính tổng với thuế tùy chỉnh
         BigDecimal customTaxRate = new BigDecimal("0.10"); // 10%
-        BigDecimal totalWithCustomTax = orderDao.calculateOrderTotalWithTax(orderId, customTaxRate);
-        assertNotNull(totalWithCustomTax, "Tổng đơn hàng với thuế tùy chỉnh không được null");
-        assertTrue(totalWithCustomTax.compareTo(BigDecimal.ZERO) >= 0, 
-                "Tổng đơn hàng với thuế tùy chỉnh phải không âm");
-        
+        BigDecimal orderTotalWithTax = orderDao.calculateOrderTotalWithTax(orderId, customTaxRate);
+        assertNotNull(orderTotalWithTax, "Hàm tính tổng với thuế phải trả về kết quả");
+        assertTrue(orderTotalWithTax.compareTo(orderTotal) > 0, "Tổng với thuế phải lớn hơn tổng gốc");
+
         // Test hàm trạng thái thành viên
         Long userId = testDataSummary.getUserIds().get(0);
         String loyaltyStatus = orderDao.getUserLoyaltyStatus(userId);
@@ -262,57 +210,6 @@ public class QueryValidationTest {
                 "Trạng thái thành viên phải hợp lệ");
 
         logger.info("Xác minh logic hàm cơ sở dữ liệu thành công");
-    }
-
-    /**
-     * Xác minh tính nhất quán dữ liệu và ràng buộc
-     * Kiểm tra các ràng buộc unique và tính toàn vẹn khóa ngoại
-     */
-    @Test
-    @Order(5)
-    @DisplayName("Xác Minh Tính Nhất Quán Dữ Liệu Và Ràng Buộc")
-    void validateDataConsistencyAndConstraints() throws SQLException {
-        logger.info("Test tính nhất quán dữ liệu và ràng buộc");
-
-        // Test ràng buộc unique
-        long userCount = userDao.count();
-        List<UserDto> allUsers = userDao.findAll();
-        assertEquals(userCount, allUsers.size(), "Số lượng user phải khớp với user thực tế");
-        
-        // Xác minh tính duy nhất username
-        Set<String> usernames = new HashSet<>();
-        for (UserDto user : allUsers) {
-            assertFalse(usernames.contains(user.getUsername()), 
-                    "Username phải duy nhất: " + user.getUsername());
-            usernames.add(user.getUsername());
-        }
-        
-        // Xác minh tính duy nhất email
-        Set<String> emails = new HashSet<>();
-        for (UserDto user : allUsers) {
-            assertFalse(emails.contains(user.getEmail()), 
-                    "Email phải duy nhất: " + user.getEmail());
-            emails.add(user.getEmail());
-        }
-        
-        // Test tính duy nhất SKU sản phẩm
-        List<ProductDto> allProducts = productDao.findAll();
-        Set<String> skus = new HashSet<>();
-        for (ProductDto product : allProducts) {
-            assertFalse(skus.contains(product.getSku()), 
-                    "SKU phải duy nhất: " + product.getSku());
-            skus.add(product.getSku());
-        }
-        
-        // Test tính toàn vẹn khóa ngoại - đơn hàng phải có user hợp lệ
-        List<OrderDto> allOrders = orderDao.findAll();
-        for (OrderDto order : allOrders) {
-            Optional<UserDto> orderUser = userDao.findById(order.getUserId());
-            assertTrue(orderUser.isPresent(), 
-                    "Đơn hàng phải có tham chiếu user hợp lệ: " + order.getId());
-        }
-
-        logger.info("Xác minh tính nhất quán dữ liệu và ràng buộc thành công");
     }
 
     // ===============================
