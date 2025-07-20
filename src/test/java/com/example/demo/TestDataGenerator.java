@@ -1,365 +1,407 @@
 package com.example.demo;
 
+import com.example.demo.dao.*;
+import com.example.demo.dao.impl.*;
+import com.example.demo.dto.*;
 import net.datafaker.Faker;
-import org.dbunit.dataset.DefaultDataSet;
-import org.dbunit.dataset.DefaultTable;
-import org.dbunit.dataset.IDataSet;
-import org.dbunit.dataset.Column;
-import org.dbunit.dataset.datatype.DataType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Date;
+import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 
 /**
- * Utility class for generating realistic test data using DataFaker.
- * Creates DBUnit datasets with fake but realistic data for testing.
+ * Lớp tiện ích để tạo dữ liệu test thực tế sử dụng DataFaker và lớp DAO.
+ * Tạo dữ liệu test thông qua các phương thức DAO thay vì SQL trực tiếp hoặc dataset DBUnit.
+ * 
+ * Utility class for generating realistic test data using DataFaker and DAO layer.
+ * Creates test data through DAO methods instead of direct SQL or DBUnit datasets.
  */
 public class TestDataGenerator {
     
+    // Logger để ghi log thông tin
+    private static final Logger logger = LoggerFactory.getLogger(TestDataGenerator.class);
+    
+    // Instance DataFaker để tạo dữ liệu thực tế
     private final Faker faker;
+    // Random generator với seed cố định để có thể tái tạo
     private final Random random;
     
-    // Categories for products
+    // Các instance DAO để tương tác với cơ sở dữ liệu
+    private final UserDao userDao;
+    private final ProductDao productDao;
+    private final OrderDao orderDao;
+    private final OrderItemDao orderItemDao;
+    private final ReviewDao reviewDao;
+    private final DatabaseConnectionManager connectionManager;
+    
+    // Danh mục sản phẩm
     private static final String[] PRODUCT_CATEGORIES = {
         "Electronics", "Furniture", "Kitchen", "Sports", "Books", "Clothing", "Home & Garden", "Toys"
     };
     
-    // Order statuses
+    // Trạng thái đơn hàng
     private static final String[] ORDER_STATUSES = {
         "PENDING", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"
     };
     
+    /**
+     * Constructor mặc định với seed ngẫu nhiên
+     */
     public TestDataGenerator() {
         this.faker = new Faker();
         this.random = new Random();
+        this.userDao = new UserDaoImpl();
+        this.productDao = new ProductDaoImpl();
+        this.orderDao = new OrderDaoImpl();
+        this.orderItemDao = new OrderItemDaoImpl();
+        this.reviewDao = new ReviewDaoImpl();
+        this.connectionManager = DatabaseConnectionManager.getInstance();
     }
     
+    /**
+     * Constructor với seed cố định để có thể tái tạo dữ liệu
+     * 
+     * @param seed seed cho random generator
+     */
     public TestDataGenerator(long seed) {
         this.faker = new Faker(new Random(seed));
         this.random = new Random(seed);
+        this.userDao = new UserDaoImpl();
+        this.productDao = new ProductDaoImpl();
+        this.orderDao = new OrderDaoImpl();
+        this.orderItemDao = new OrderItemDaoImpl();
+        this.reviewDao = new ReviewDaoImpl();
+        this.connectionManager = DatabaseConnectionManager.getInstance();
     }
     
     /**
-     * Generates a complete dataset with users, products, orders, order items, and reviews.
-     * 
-     * @param userCount number of users to generate
-     * @param productCount number of products to generate
-     * @param orderCount number of orders to generate
-     * @return IDataSet containing all generated tables
-     * @throws Exception if dataset creation fails
+     * Tóm tắt dữ liệu chứa số lượng entity đã tạo và ID.
      */
-    public IDataSet generateCompleteDataSet(int userCount, int productCount, int orderCount) throws Exception {
-        DefaultDataSet dataSet = new DefaultDataSet();
+    public static class TestDataSummary {
+        private final List<Long> userIds = new ArrayList<>();
+        private final List<Long> productIds = new ArrayList<>();
+        private final List<Long> orderIds = new ArrayList<>();
+        private final List<Long> orderItemIds = new ArrayList<>();
+        private final List<Long> reviewIds = new ArrayList<>();
         
-        // Generate tables in dependency order
-        DefaultTable usersTable = generateUsersTable(userCount);
-        DefaultTable productsTable = generateProductsTable(productCount);
-        DefaultTable ordersTable = generateOrdersTable(orderCount, userCount);
-        DefaultTable orderItemsTable = generateOrderItemsTable(ordersTable, productsTable);
-        DefaultTable reviewsTable = generateReviewsTable(userCount, productCount, Math.min(userCount * 3, 50));
+        public List<Long> getUserIds() { return userIds; }
+        public List<Long> getProductIds() { return productIds; }
+        public List<Long> getOrderIds() { return orderIds; }
+        public List<Long> getOrderItemIds() { return orderItemIds; }
+        public List<Long> getReviewIds() { return reviewIds; }
         
-        dataSet.addTable(usersTable);
-        dataSet.addTable(productsTable);
-        dataSet.addTable(ordersTable);
-        dataSet.addTable(orderItemsTable);
-        dataSet.addTable(reviewsTable);
+        public int getUserCount() { return userIds.size(); }
+        public int getProductCount() { return productIds.size(); }
+        public int getOrderCount() { return orderIds.size(); }
+        public int getOrderItemCount() { return orderItemIds.size(); }
+        public int getReviewCount() { return reviewIds.size(); }
         
-        return dataSet;
+        @Override
+        public String toString() {
+            return String.format("TestDataSummary{users=%d, products=%d, orders=%d, orderItems=%d, reviews=%d}",
+                    getUserCount(), getProductCount(), getOrderCount(), getOrderItemCount(), getReviewCount());
+        }
     }
     
     /**
-     * Generates a users table with fake user data.
+     * Tạo một bộ dữ liệu test hoàn chỉnh với users, products, orders, order items và reviews.
      * 
-     * @param count number of users to generate
-     * @return DefaultTable containing user data
-     * @throws org.dbunit.dataset.DataSetException if table operations fail
+     * @param userCount số lượng user cần tạo
+     * @param productCount số lượng sản phẩm cần tạo
+     * @param orderCount số lượng đơn hàng cần tạo
+     * @return TestDataSummary chứa thông tin về dữ liệu đã tạo
+     * @throws SQLException nếu thao tác cơ sở dữ liệu thất bại
      */
-    public DefaultTable generateUsersTable(int count) throws org.dbunit.dataset.DataSetException {
-        Column[] columns = {
-            new Column("id", DataType.BIGINT),
-            new Column("username", DataType.VARCHAR),
-            new Column("email", DataType.VARCHAR),
-            new Column("first_name", DataType.VARCHAR),
-            new Column("last_name", DataType.VARCHAR),
-            new Column("date_of_birth", DataType.DATE),
-            new Column("phone_number", DataType.VARCHAR),
-            new Column("created_at", DataType.TIMESTAMP),
-            new Column("updated_at", DataType.TIMESTAMP),
-            new Column("is_active", DataType.BOOLEAN)
-        };
+    public TestDataSummary generateCompleteTestData(int userCount, int productCount, int orderCount) throws SQLException {
+        logger.info("Bắt đầu tạo dữ liệu test: {} users, {} products, {} orders", userCount, productCount, orderCount);
         
-        DefaultTable table = new DefaultTable("users", columns);
+        TestDataSummary summary = new TestDataSummary();
+        
+        try {
+            connectionManager.executeInTransaction(() -> {
+                // Tạo các entity theo thứ tự phụ thuộc
+                generateUsers(userCount, summary);
+                generateProducts(productCount, summary);
+                generateOrders(orderCount, summary);
+                generateOrderItems(summary);
+                generateReviews(Math.min(userCount * 2, 50), summary);
+            });
+            
+            logger.info("Tạo dữ liệu test hoàn tất: {}", summary);
+            return summary;
+        } catch (SQLException e) {
+            logger.error("Thất bại khi tạo dữ liệu test", e);
+            throw e;
+        }
+    }
+    
+    /**
+     * Tạo users sử dụng UserDao.
+     * 
+     * @param count số lượng user cần tạo
+     * @param summary tóm tắt dữ liệu để lưu ID
+     */
+    private void generateUsers(int count, TestDataSummary summary) throws SQLException {
         Set<String> usedUsernames = new HashSet<>();
         Set<String> usedEmails = new HashSet<>();
         
-        for (int i = 1; i <= count; i++) {
-            String username = generateUniqueUsername(usedUsernames);
-            String email = generateUniqueEmail(usedEmails);
-            String firstName = faker.name().firstName();
-            String lastName = faker.name().lastName();
-            Date dateOfBirth = new Date(faker.date().birthday(18, 65).getTime());
-            String phoneNumber = faker.phoneNumber().phoneNumber();
-            Timestamp now = Timestamp.valueOf(LocalDateTime.now());
+        for (int i = 0; i < count; i++) {
+            UserDto user = new UserDto();
+            user.setUsername(generateUniqueUsername(usedUsernames));
+            user.setEmail(generateUniqueEmail(usedEmails));
+            user.setFirstName(faker.name().firstName());
+            user.setLastName(faker.name().lastName());
+            user.setDateOfBirth(new Date(faker.date().birthday(18, 65).getTime()));
+            user.setPhoneNumber(faker.phoneNumber().phoneNumber());
+            user.setIsActive(true);
             
-            Object[] row = {
-                (long) i,
-                username,
-                email,
-                firstName,
-                lastName,
-                dateOfBirth,
-                phoneNumber,
-                now,
-                now,
-                1  // Use 1 instead of true for MySQL compatibility
-            };
-            
-            table.addRow(row);
+            UserDto createdUser = userDao.create(user);
+            summary.getUserIds().add(createdUser.getId());
         }
         
-        return table;
+        logger.debug("Đã tạo {} users", count);
     }
     
     /**
-     * Generates a products table with fake product data.
+     * Tạo sản phẩm sử dụng ProductDao.
      * 
-     * @param count number of products to generate
-     * @return DefaultTable containing product data
-     * @throws org.dbunit.dataset.DataSetException if table operations fail
+     * @param count số lượng sản phẩm cần tạo
+     * @param summary tóm tắt dữ liệu để lưu ID
      */
-    public DefaultTable generateProductsTable(int count) throws org.dbunit.dataset.DataSetException {
-        Column[] columns = {
-            new Column("id", DataType.BIGINT),
-            new Column("name", DataType.VARCHAR),
-            new Column("description", DataType.LONGVARCHAR),
-            new Column("price", DataType.DECIMAL),
-            new Column("category", DataType.VARCHAR),
-            new Column("sku", DataType.VARCHAR),
-            new Column("stock_quantity", DataType.INTEGER),
-            new Column("is_available", DataType.BOOLEAN),
-            new Column("created_at", DataType.TIMESTAMP),
-            new Column("updated_at", DataType.TIMESTAMP)
-        };
-        
-        DefaultTable table = new DefaultTable("products", columns);
+    private void generateProducts(int count, TestDataSummary summary) throws SQLException {
         Set<String> usedSkus = new HashSet<>();
         
-        for (int i = 1; i <= count; i++) {
-            String name = faker.commerce().productName();
-            String description = faker.lorem().paragraph(3);
-            BigDecimal price = new BigDecimal(faker.number().randomDouble(2, 10, 1000))
-                    .setScale(2, RoundingMode.HALF_UP);
-            String category = PRODUCT_CATEGORIES[random.nextInt(PRODUCT_CATEGORIES.length)];
-            String sku = generateUniqueSku(usedSkus);
-            int stockQuantity = faker.number().numberBetween(0, 500);
-            boolean isAvailable = stockQuantity > 0 && faker.bool().bool();
-            Timestamp now = Timestamp.valueOf(LocalDateTime.now());
+        for (int i = 0; i < count; i++) {
+            ProductDto product = new ProductDto();
+            product.setName(faker.commerce().productName());
+            product.setDescription(faker.lorem().paragraph(3));
+            product.setPrice(new BigDecimal(faker.number().randomDouble(2, 10, 1000))
+                    .setScale(2, RoundingMode.HALF_UP));
+            product.setCategory(PRODUCT_CATEGORIES[random.nextInt(PRODUCT_CATEGORIES.length)]);
+            product.setSku(generateUniqueSku(usedSkus));
+            product.setStockQuantity(faker.number().numberBetween(0, 500));
+            product.setIsAvailable(product.getStockQuantity() > 0 && faker.bool().bool());
             
-            Object[] row = {
-                (long) i,
-                name,
-                description,
-                price,
-                category,
-                sku,
-                stockQuantity,
-                isAvailable ? 1 : 0,  // Convert boolean to int for MySQL
-                now,
-                now
-            };
-            
-            table.addRow(row);
+            ProductDto createdProduct = productDao.create(product);
+            summary.getProductIds().add(createdProduct.getId());
         }
         
-        return table;
+        logger.debug("Đã tạo {} products", count);
     }
     
     /**
-     * Generates an orders table with fake order data.
+     * Tạo đơn hàng sử dụng OrderDao.
      * 
-     * @param count number of orders to generate
-     * @param userCount number of available users
-     * @return DefaultTable containing order data
-     * @throws org.dbunit.dataset.DataSetException if table operations fail
+     * @param count số lượng đơn hàng cần tạo
+     * @param summary tóm tắt dữ liệu để lưu ID
      */
-    public DefaultTable generateOrdersTable(int count, int userCount) throws org.dbunit.dataset.DataSetException {
-        Column[] columns = {
-            new Column("id", DataType.BIGINT),
-            new Column("user_id", DataType.BIGINT),
-            new Column("order_number", DataType.VARCHAR),
-            new Column("total_amount", DataType.DECIMAL),
-            new Column("status", DataType.VARCHAR),
-            new Column("order_date", DataType.TIMESTAMP),
-            new Column("shipped_date", DataType.TIMESTAMP),
-            new Column("delivery_address", DataType.LONGVARCHAR)
-        };
-        
-        DefaultTable table = new DefaultTable("orders", columns);
+    private void generateOrders(int count, TestDataSummary summary) throws SQLException {
         Set<String> usedOrderNumbers = new HashSet<>();
         
-        for (int i = 1; i <= count; i++) {
-            long userId = faker.number().numberBetween(1, userCount + 1);
-            String orderNumber = generateUniqueOrderNumber(usedOrderNumbers);
-            BigDecimal totalAmount = new BigDecimal(faker.number().randomDouble(2, 25, 2000))
-                    .setScale(2, RoundingMode.HALF_UP);
-            String status = ORDER_STATUSES[random.nextInt(ORDER_STATUSES.length)];
+        for (int i = 0; i < count; i++) {
+            OrderDto order = new OrderDto();
             
-            LocalDateTime orderDate = faker.date().past(90, TimeUnit.DAYS).toInstant()
-                    .atZone(ZoneId.systemDefault()).toLocalDateTime();
-            Timestamp orderTimestamp = Timestamp.valueOf(orderDate);
+            // User ID ngẫu nhiên từ users đã tạo
+            Long userId = summary.getUserIds().get(random.nextInt(summary.getUserIds().size()));
+            order.setUserId(userId);
+            order.setOrderNumber(generateUniqueOrderNumber(usedOrderNumbers));
+            order.setTotalAmount(new BigDecimal(faker.number().randomDouble(2, 50, 2000))
+                    .setScale(2, RoundingMode.HALF_UP));
+            order.setStatus(ORDER_STATUSES[random.nextInt(ORDER_STATUSES.length)]);
+            order.setDeliveryAddress(faker.address().fullAddress());
             
-            Timestamp shippedDate = null;
-            if ("SHIPPED".equals(status) || "DELIVERED".equals(status)) {
-                shippedDate = Timestamp.valueOf(orderDate.plusDays(faker.number().numberBetween(1, 5)));
+            // Đặt ngày gửi cho đơn hàng đã gửi/giao
+            if ("SHIPPED".equals(order.getStatus()) || "DELIVERED".equals(order.getStatus())) {
+                order.setShippedDate(Timestamp.valueOf(LocalDateTime.now().minusDays(random.nextInt(30))));
             }
             
-            String deliveryAddress = faker.address().fullAddress();
-            
-            Object[] row = {
-                (long) i,
-                userId,
-                orderNumber,
-                totalAmount,
-                status,
-                orderTimestamp,
-                shippedDate,
-                deliveryAddress
-            };
-            
-            table.addRow(row);
+            OrderDto createdOrder = orderDao.create(order);
+            summary.getOrderIds().add(createdOrder.getId());
         }
         
-        return table;
+        logger.debug("Đã tạo {} orders", count);
     }
     
     /**
-     * Generates order items table based on existing orders and products.
+     * Tạo chi tiết đơn hàng cho các đơn hàng hiện có sử dụng OrderItemDao.
      * 
-     * @param ordersTable the orders table to generate items for
-     * @param productsTable the products table to select from
-     * @return DefaultTable containing order items data
-     * @throws org.dbunit.dataset.DataSetException if table operations fail
+     * @param summary tóm tắt dữ liệu để lưu ID
      */
-    public DefaultTable generateOrderItemsTable(DefaultTable ordersTable, DefaultTable productsTable) throws org.dbunit.dataset.DataSetException {
-        Column[] columns = {
-            new Column("id", DataType.BIGINT),
-            new Column("order_id", DataType.BIGINT),
-            new Column("product_id", DataType.BIGINT),
-            new Column("quantity", DataType.INTEGER),
-            new Column("unit_price", DataType.DECIMAL),
-            new Column("total_price", DataType.DECIMAL)
-        };
-        
-        DefaultTable table = new DefaultTable("order_items", columns);
-        int itemId = 1;
-        
-        for (int i = 0; i < ordersTable.getRowCount(); i++) {
-            long orderId = (Long) ordersTable.getValue(i, "id");
-            int itemCount = faker.number().numberBetween(1, 5); // 1-4 items per order
-            
+    private void generateOrderItems(TestDataSummary summary) throws SQLException {
+        for (Long orderId : summary.getOrderIds()) {
+            // Tạo 1-5 items cho mỗi đơn hàng
+            int itemCount = random.nextInt(5) + 1;
             Set<Long> usedProductIds = new HashSet<>();
             
-            for (int j = 0; j < itemCount; j++) {
-                long productId;
+            for (int i = 0; i < itemCount; i++) {
+                Long productId;
                 do {
-                    productId = faker.number().numberBetween(1, productsTable.getRowCount() + 1);
-                } while (usedProductIds.contains(productId));
+                    productId = summary.getProductIds().get(random.nextInt(summary.getProductIds().size()));
+                } while (usedProductIds.contains(productId) && usedProductIds.size() < summary.getProductIds().size());
+                
                 usedProductIds.add(productId);
                 
-                int quantity = faker.number().numberBetween(1, 4);
-                BigDecimal unitPrice = new BigDecimal(faker.number().randomDouble(2, 10, 500))
-                        .setScale(2, RoundingMode.HALF_UP);
-                BigDecimal totalPrice = unitPrice.multiply(new BigDecimal(quantity))
-                        .setScale(2, RoundingMode.HALF_UP);
+                OrderItemDto orderItem = new OrderItemDto();
+                orderItem.setOrderId(orderId);
+                orderItem.setProductId(productId);
+                orderItem.setQuantity(random.nextInt(5) + 1);
+                orderItem.setUnitPrice(new BigDecimal(faker.number().randomDouble(2, 10, 500))
+                        .setScale(2, RoundingMode.HALF_UP));
+                orderItem.setTotalPrice(orderItem.getUnitPrice().multiply(new BigDecimal(orderItem.getQuantity())));
                 
-                Object[] row = {
-                    (long) itemId++,
-                    orderId,
-                    productId,
-                    quantity,
-                    unitPrice,
-                    totalPrice
-                };
-                
-                table.addRow(row);
+                OrderItemDto createdOrderItem = orderItemDao.create(orderItem);
+                summary.getOrderItemIds().add(createdOrderItem.getId());
             }
         }
         
-        return table;
+        logger.debug("Đã tạo {} order items", summary.getOrderItemIds().size());
     }
     
     /**
-     * Generates a reviews table with fake review data.
+     * Tạo đánh giá sử dụng ReviewDao.
      * 
-     * @param userCount number of available users
-     * @param productCount number of available products
-     * @param reviewCount number of reviews to generate
-     * @return DefaultTable containing review data
-     * @throws org.dbunit.dataset.DataSetException if table operations fail
+     * @param count số lượng đánh giá cần tạo
+     * @param summary tóm tắt dữ liệu để lưu ID
      */
-    public DefaultTable generateReviewsTable(int userCount, int productCount, int reviewCount) throws org.dbunit.dataset.DataSetException {
-        Column[] columns = {
-            new Column("id", DataType.BIGINT),
-            new Column("user_id", DataType.BIGINT),
-            new Column("product_id", DataType.BIGINT),
-            new Column("rating", DataType.INTEGER),
-            new Column("title", DataType.VARCHAR),
-            new Column("comment", DataType.LONGVARCHAR),
-            new Column("review_date", DataType.TIMESTAMP),
-            new Column("is_verified_purchase", DataType.BOOLEAN)
-        };
+    private void generateReviews(int count, TestDataSummary summary) throws SQLException {
+        Set<String> usedUserProductPairs = new HashSet<>();
         
-        DefaultTable table = new DefaultTable("reviews", columns);
-        Set<String> usedUserProductCombos = new HashSet<>();
-        
-        for (int i = 1; i <= reviewCount; i++) {
-            long userId;
-            long productId;
-            String combo;
+        for (int i = 0; i < count && usedUserProductPairs.size() < summary.getUserIds().size() * summary.getProductIds().size(); i++) {
+            Long userId = summary.getUserIds().get(random.nextInt(summary.getUserIds().size()));
+            Long productId = summary.getProductIds().get(random.nextInt(summary.getProductIds().size()));
+            String pairKey = userId + ":" + productId;
             
-            // Ensure unique user-product combinations
-            do {
-                userId = faker.number().numberBetween(1, userCount + 1);
-                productId = faker.number().numberBetween(1, productCount + 1);
-                combo = userId + "-" + productId;
-            } while (usedUserProductCombos.contains(combo));
+            if (usedUserProductPairs.contains(pairKey)) {
+                i--; // Thử lại với cặp khác
+                continue;
+            }
             
-            usedUserProductCombos.add(combo);
+            usedUserProductPairs.add(pairKey);
             
-            int rating = faker.number().numberBetween(1, 6); // 1-5 stars
-            String title = faker.lorem().sentence(4, 6);
-            String comment = faker.lorem().paragraph(2);
-            Timestamp reviewDate = Timestamp.valueOf(
-                faker.date().past(30, TimeUnit.DAYS).toInstant()
-                    .atZone(ZoneId.systemDefault()).toLocalDateTime());
-            boolean isVerifiedPurchase = faker.bool().bool();
+            ReviewDto review = new ReviewDto();
+            review.setUserId(userId);
+            review.setProductId(productId);
+            review.setRating(random.nextInt(5) + 1);
+            review.setTitle(faker.lorem().sentence(5));
+            review.setComment(faker.lorem().paragraph(2));
+            review.setIsVerifiedPurchase(faker.bool().bool());
             
-            Object[] row = {
-                (long) i,
-                userId,
-                productId,
-                rating,
-                title,
-                comment,
-                reviewDate,
-                isVerifiedPurchase ? 1 : 0  // Convert boolean to int for MySQL
-            };
-            
-            table.addRow(row);
+            ReviewDto createdReview = reviewDao.create(review);
+            summary.getReviewIds().add(createdReview.getId());
         }
         
-        return table;
+        logger.debug("Đã tạo {} reviews", summary.getReviewIds().size());
     }
     
-    // Helper methods
+    /**
+     * Dọn dẹp tất cả dữ liệu test đã tạo.
+     * 
+     * @param summary tóm tắt dữ liệu cần dọn dẹp
+     */
+    public void cleanupTestData(TestDataSummary summary) throws SQLException {
+        logger.info("Dọn dẹp dữ liệu test: {}", summary);
+        
+        try {
+            connectionManager.executeInTransaction(() -> {
+                // Xóa theo thứ tự phụ thuộc ngược
+                for (Long reviewId : summary.getReviewIds()) {
+                    reviewDao.delete(reviewId);
+                }
+                
+                for (Long orderItemId : summary.getOrderItemIds()) {
+                    orderItemDao.delete(orderItemId);
+                }
+                
+                for (Long orderId : summary.getOrderIds()) {
+                    orderDao.delete(orderId);
+                }
+                
+                for (Long productId : summary.getProductIds()) {
+                    productDao.delete(productId);
+                }
+                
+                for (Long userId : summary.getUserIds()) {
+                    userDao.delete(userId);
+                }
+            });
+            
+            logger.info("Dọn dẹp dữ liệu test hoàn tất");
+        } catch (SQLException e) {
+            logger.error("Thất bại khi dọn dẹp dữ liệu test", e);
+            throw e;
+        }
+    }
     
+    // Phương thức tiện ích cho việc tạo dữ liệu cụ thể
+    
+    /**
+     * Chỉ tạo users.
+     * 
+     * @param count số lượng user cần tạo
+     * @return danh sách user đã tạo
+     */
+    public List<UserDto> generateUsers(int count) throws SQLException {
+        List<UserDto> users = new ArrayList<>();
+        Set<String> usedUsernames = new HashSet<>();
+        Set<String> usedEmails = new HashSet<>();
+        
+        for (int i = 0; i < count; i++) {
+            UserDto user = new UserDto();
+            user.setUsername(generateUniqueUsername(usedUsernames));
+            user.setEmail(generateUniqueEmail(usedEmails));
+            user.setFirstName(faker.name().firstName());
+            user.setLastName(faker.name().lastName());
+            user.setDateOfBirth(new Date(faker.date().birthday(18, 65).getTime()));
+            user.setPhoneNumber(faker.phoneNumber().phoneNumber());
+            user.setIsActive(true);
+            
+            users.add(userDao.create(user));
+        }
+        
+        return users;
+    }
+    
+    /**
+     * Chỉ tạo sản phẩm.
+     * 
+     * @param count số lượng sản phẩm cần tạo
+     * @return danh sách sản phẩm đã tạo
+     */
+    public List<ProductDto> generateProducts(int count) throws SQLException {
+        List<ProductDto> products = new ArrayList<>();
+        Set<String> usedSkus = new HashSet<>();
+        
+        for (int i = 0; i < count; i++) {
+            ProductDto product = new ProductDto();
+            product.setName(faker.commerce().productName());
+            product.setDescription(faker.lorem().paragraph(3));
+            product.setPrice(new BigDecimal(faker.number().randomDouble(2, 10, 1000))
+                    .setScale(2, RoundingMode.HALF_UP));
+            product.setCategory(PRODUCT_CATEGORIES[random.nextInt(PRODUCT_CATEGORIES.length)]);
+            product.setSku(generateUniqueSku(usedSkus));
+            product.setStockQuantity(faker.number().numberBetween(0, 500));
+            product.setIsAvailable(product.getStockQuantity() > 0 && faker.bool().bool());
+            
+            products.add(productDao.create(product));
+        }
+        
+        return products;
+    }
+    
+    // Phương thức hỗ trợ
+    
+    /**
+     * Tạo username duy nhất.
+     * 
+     * @param usedUsernames tập hợp username đã sử dụng
+     * @return username duy nhất
+     */
     private String generateUniqueUsername(Set<String> usedUsernames) {
         String username;
         do {
@@ -369,6 +411,12 @@ public class TestDataGenerator {
         return username;
     }
     
+    /**
+     * Tạo email duy nhất.
+     * 
+     * @param usedEmails tập hợp email đã sử dụng
+     * @return email duy nhất
+     */
     private String generateUniqueEmail(Set<String> usedEmails) {
         String email;
         do {
@@ -378,6 +426,12 @@ public class TestDataGenerator {
         return email;
     }
     
+    /**
+     * Tạo SKU duy nhất.
+     * 
+     * @param usedSkus tập hợp SKU đã sử dụng
+     * @return SKU duy nhất
+     */
     private String generateUniqueSku(Set<String> usedSkus) {
         String sku;
         do {
@@ -387,6 +441,12 @@ public class TestDataGenerator {
         return sku;
     }
     
+    /**
+     * Tạo số đơn hàng duy nhất.
+     * 
+     * @param usedOrderNumbers tập hợp số đơn hàng đã sử dụng
+     * @return số đơn hàng duy nhất
+     */
     private String generateUniqueOrderNumber(Set<String> usedOrderNumbers) {
         String orderNumber;
         do {

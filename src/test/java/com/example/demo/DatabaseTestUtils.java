@@ -1,177 +1,118 @@
 package com.example.demo;
 
-import org.dbunit.database.DatabaseConnection;
-import org.dbunit.database.IDatabaseConnection;
-import org.dbunit.dataset.IDataSet;
-import org.dbunit.dataset.xml.FlatXmlDataSetBuilder;
-import org.dbunit.operation.DatabaseOperation;
+import com.example.demo.dao.DatabaseConnectionManager;
+import com.example.demo.dao.DaoFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.InputStream;
-import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 
 /**
- * Utility class for database testing with DBUnit.
- * Provides methods for database connection, data setup, and cleanup.
+ * Lớp tiện ích cho việc test cơ sở dữ liệu với lớp DAO.
+ * Cung cấp các phương thức để quản lý kết nối cơ sở dữ liệu và thao tác dữ liệu thông qua DAO.
+ * 
+ * Utility class for database testing with DAO layer.
+ * Provides methods for database connection management and data operations through DAOs.
  */
 public class DatabaseTestUtils {
     
+    // Logger để ghi log thông tin
     private static final Logger logger = LoggerFactory.getLogger(DatabaseTestUtils.class);
     
-    // Database connection parameters
-    private static final String DB_URL = "jdbc:mysql://localhost:3306/testdb";
-    private static final String DB_USER = "testuser";
-    private static final String DB_PASSWORD = "testpass";
-    private static final String DB_DRIVER = "com.mysql.cj.jdbc.Driver";
-    
     /**
-     * Creates a JDBC connection to the test database.
+     * Lấy instance quản lý kết nối cơ sở dữ liệu.
      * 
-     * @return JDBC Connection instance
-     * @throws SQLException if connection fails
+     * @return DatabaseConnectionManager instance
      */
-    public static Connection createConnection() throws SQLException {
-        try {
-            Class.forName(DB_DRIVER);
-            Connection connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
-            connection.setAutoCommit(false); // Disable auto-commit for transaction control
-            return connection;
-        } catch (ClassNotFoundException e) {
-            throw new SQLException("MySQL JDBC driver not found", e);
-        }
+    public static DatabaseConnectionManager getConnectionManager() {
+        return DatabaseConnectionManager.getInstance();
     }
     
     /**
-     * Creates a DBUnit database connection wrapper.
+     * Lấy instance factory DAO.
      * 
-     * @return IDatabaseConnection instance for DBUnit operations
-     * @throws SQLException if connection fails
-     * @throws org.dbunit.DatabaseUnitException if DBUnit configuration fails
+     * @return DaoFactory instance
      */
-    public static IDatabaseConnection createDatabaseConnection() throws SQLException, org.dbunit.DatabaseUnitException {
-        Connection jdbcConnection = createConnection();
-        IDatabaseConnection databaseConnection = new DatabaseConnection(jdbcConnection);
-        
-        // Configure DBUnit properties for MySQL
-        databaseConnection.getConfig().setProperty("http://www.dbunit.org/properties/datatypeFactory", 
-                new org.dbunit.ext.mysql.MySqlDataTypeFactory());
-        databaseConnection.getConfig().setProperty("http://www.dbunit.org/properties/metadataHandler", 
-                new org.dbunit.ext.mysql.MySqlMetadataHandler());
-        
-        return databaseConnection;
+    public static DaoFactory getDaoFactory() {
+        return DaoFactory.getInstance();
     }
     
     /**
-     * Loads dataset from XML file in the classpath.
+     * Tạo và trả về bộ tạo dữ liệu test.
      * 
-     * @param xmlFileName the name of the XML file containing test data
-     * @return IDataSet instance
-     * @throws Exception if file loading fails
+     * @return TestDataGenerator instance với seed cố định để test có thể tái tạo
      */
-    public static IDataSet loadDataSet(String xmlFileName) throws Exception {
-        InputStream inputStream = DatabaseTestUtils.class.getClassLoader()
-                .getResourceAsStream(xmlFileName);
-        
-        if (inputStream == null) {
-            throw new IllegalArgumentException("Dataset file not found: " + xmlFileName);
-        }
-        
-        FlatXmlDataSetBuilder builder = new FlatXmlDataSetBuilder();
-        builder.setColumnSensing(true); // Enable column sensing for better compatibility
-        return builder.build(inputStream);
+    public static TestDataGenerator createTestDataGenerator() {
+        return new TestDataGenerator(12345L);
     }
     
     /**
-     * Sets up test data by performing CLEAN_INSERT operation.
-     * This will delete all existing data and insert the test data.
+     * Tạo và trả về bộ tạo dữ liệu test với seed tùy chỉnh.
      * 
-     * @param connection the database connection
-     * @param dataSet the dataset to insert
-     * @throws Exception if setup fails
+     * @param seed seed để tạo dữ liệu ngẫu nhiên có thể tái tạo
+     * @return TestDataGenerator instance với seed được chỉ định
      */
-    public static void setupTestData(IDatabaseConnection connection, IDataSet dataSet) throws Exception {
-        try {
-            logger.info("Setting up test data...");
-            DatabaseOperation.CLEAN_INSERT.execute(connection, dataSet);
-            logger.info("Test data setup completed");
-        } catch (Exception e) {
-            logger.error("Failed to setup test data", e);
-            throw e;
-        }
+    public static TestDataGenerator createTestDataGenerator(long seed) {
+        return new TestDataGenerator(seed);
     }
     
     /**
-     * Cleans up test data by deleting all records from tables in the dataset.
+     * Thiết lập dữ liệu test sử dụng lớp DAO.
      * 
-     * @param connection the database connection
-     * @param dataSet the dataset containing tables to clean
-     * @throws Exception if cleanup fails
+     * @param userCount số lượng user cần tạo
+     * @param productCount số lượng sản phẩm cần tạo
+     * @param orderCount số lượng đơn hàng cần tạo
+     * @return TestDataSummary chứa thông tin về dữ liệu đã tạo
+     * @throws SQLException nếu việc tạo dữ liệu thất bại
      */
-    public static void cleanupTestData(IDatabaseConnection connection, IDataSet dataSet) throws Exception {
-        try {
-            logger.info("Cleaning up test data...");
-            DatabaseOperation.DELETE_ALL.execute(connection, dataSet);
-            logger.info("Test data cleanup completed");
-        } catch (Exception e) {
-            logger.error("Failed to cleanup test data", e);
-            throw e;
-        }
+    public static TestDataGenerator.TestDataSummary setupTestData(int userCount, int productCount, int orderCount) throws SQLException {
+        TestDataGenerator generator = createTestDataGenerator();
+        return generator.generateCompleteTestData(userCount, productCount, orderCount);
     }
     
     /**
-     * Truncates all tables in the dataset. Use with caution!
+     * Dọn dẹp dữ liệu test sử dụng lớp DAO.
      * 
-     * @param connection the database connection
-     * @param dataSet the dataset containing tables to truncate
-     * @throws Exception if truncation fails
+     * @param summary tóm tắt dữ liệu test chứa ID của dữ liệu cần dọn dẹp
+     * @throws SQLException nếu việc dọn dẹp thất bại
      */
-    public static void truncateTables(IDatabaseConnection connection, IDataSet dataSet) throws Exception {
-        try {
-            logger.info("Truncating tables...");
-            DatabaseOperation.TRUNCATE_TABLE.execute(connection, dataSet);
-            logger.info("Table truncation completed");
-        } catch (Exception e) {
-            logger.error("Failed to truncate tables", e);
-            throw e;
-        }
+    public static void cleanupTestData(TestDataGenerator.TestDataSummary summary) throws SQLException {
+        TestDataGenerator generator = createTestDataGenerator();
+        generator.cleanupTestData(summary);
     }
     
     /**
-     * Closes the database connection safely.
+     * Commit transaction hiện tại.
      * 
-     * @param connection the connection to close
+     * @throws SQLException nếu commit thất bại
      */
-    public static void closeConnection(IDatabaseConnection connection) {
-        if (connection != null) {
-            try {
-                connection.close();
-                logger.debug("Database connection closed");
-            } catch (SQLException e) {
-                logger.warn("Error closing database connection", e);
-            }
-        }
+    public static void commit() throws SQLException {
+        getConnectionManager().commit();
     }
     
     /**
-     * Commits the current transaction.
+     * Rollback transaction hiện tại.
      * 
-     * @param connection the database connection
-     * @throws SQLException if commit fails
+     * @throws SQLException nếu rollback thất bại
      */
-    public static void commit(IDatabaseConnection connection) throws SQLException {
-        connection.getConnection().commit();
+    public static void rollback() throws SQLException {
+        getConnectionManager().rollback();
     }
     
     /**
-     * Rolls back the current transaction.
-     * 
-     * @param connection the database connection
-     * @throws SQLException if rollback fails
+     * Đóng kết nối cơ sở dữ liệu cho thread hiện tại.
      */
-    public static void rollback(IDatabaseConnection connection) throws SQLException {
-        connection.getConnection().rollback();
+    public static void closeConnection() {
+        getConnectionManager().closeConnection();
+    }
+    
+    /**
+     * Thực thi code trong một transaction sử dụng lớp DAO.
+     * 
+     * @param callback callback transaction cần thực thi
+     * @throws SQLException nếu việc thực thi transaction thất bại
+     */
+    public static void executeInTransaction(DatabaseConnectionManager.TransactionCallback callback) throws SQLException {
+        getConnectionManager().executeInTransaction(callback);
     }
 } 
