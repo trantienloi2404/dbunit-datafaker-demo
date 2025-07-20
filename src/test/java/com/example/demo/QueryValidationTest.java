@@ -3,6 +3,8 @@ package com.example.demo;
 import com.example.demo.dao.*;
 import com.example.demo.dao.impl.*;
 import com.example.demo.dto.*;
+import com.example.utils.TestDataGenerator;
+
 import org.junit.jupiter.api.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

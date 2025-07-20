@@ -1,4 +1,4 @@
-package com.example.demo;
+package com.example.utils;
 
 import com.example.demo.dao.*;
 import com.example.demo.dao.impl.*;

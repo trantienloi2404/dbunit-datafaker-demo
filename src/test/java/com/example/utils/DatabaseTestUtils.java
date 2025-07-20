@@ -1,6 +1,7 @@
-package com.example.demo;
+package com.example.utils;
 
 import com.example.demo.dao.DatabaseConnectionManager;
+import com.example.utils.TestDataGenerator.TestDataSummary;
 import com.example.demo.dao.DaoFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
