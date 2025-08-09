@@ -177,9 +177,9 @@ public class SchemaValidationTest {
     void validateRequiredStoredProceduresExist() throws SQLException {
         logger.info("Xác minh các stored procedure bắt buộc tồn tại");
 
-        // Ghi chú: Thêm tên stored procedure ở đây nếu có
+        // Các stored procedure bắt buộc cần tồn tại
         String[] requiredProcedures = {
-            // Ví dụ: "update_inventory_procedure"
+            "sp_mark_order_shipped"
         };
 
         for (String procedureName : requiredProcedures) {
@@ -201,9 +201,9 @@ public class SchemaValidationTest {
     void validateRequiredTriggersExist() throws SQLException {
         logger.info("Xác minh các trigger bắt buộc tồn tại");
 
-        // Ghi chú: Thêm tên trigger ở đây nếu có
+        // Các trigger bắt buộc cần tồn tại
         String[] requiredTriggers = {
-            // Ví dụ: "stock_update_trigger"
+            "trg_after_update_order_update_user"
         };
 
         for (String triggerName : requiredTriggers) {

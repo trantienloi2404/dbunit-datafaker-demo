@@ -104,6 +104,31 @@ BEGIN
 END //
 DELIMITER ;
 
+-- Stored Procedure: Simple mark order as shipped
+DELIMITER //
+DROP PROCEDURE IF EXISTS sp_mark_order_shipped //
+CREATE PROCEDURE sp_mark_order_shipped(IN p_order_id BIGINT)
+BEGIN
+    UPDATE orders
+    SET status = 'SHIPPED',
+        shipped_date = CURRENT_TIMESTAMP
+    WHERE id = p_order_id;
+END //
+DELIMITER ;
+
+-- Trigger: Simple update user activity after order update
+DELIMITER //
+DROP TRIGGER IF EXISTS trg_after_update_order_update_user //
+CREATE TRIGGER trg_after_update_order_update_user
+AFTER UPDATE ON orders
+FOR EACH ROW
+BEGIN
+    UPDATE users
+    SET updated_at = CURRENT_TIMESTAMP
+    WHERE id = NEW.user_id;
+END //
+DELIMITER ;
+
 -- Function: Calculate total order value with custom tax rate
 DELIMITER //
 CREATE FUNCTION calculate_order_total_with_tax(order_id_param BIGINT, tax_rate DECIMAL(5,4))
