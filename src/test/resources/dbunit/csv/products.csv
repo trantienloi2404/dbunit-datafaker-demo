@@ -1,0 +1,3 @@
+id,name,description,price,category,sku,stock_quantity,is_available,created_at,updated_at
+2001,CSV Product 1,CSV description 1,19.99,CSV,CSV-SKU-001,5,1,2024-01-01 00:00:00,2024-01-01 00:00:00
+2002,CSV Product 2,CSV description 2,29.99,CSV,CSV-SKU-002,7,1,2024-01-01 00:00:00,2024-01-01 00:00:00
