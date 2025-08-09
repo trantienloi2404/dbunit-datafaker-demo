@@ -14,42 +14,33 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Lớp test xác minh schema cơ sở dữ liệu để đảm bảo schema phù hợp với 
- * yêu cầu nghiệp vụ và kiểm tra xem schema được thiết kế có khớp với 
- * schema được triển khai không. Điều này giải quyết yêu cầu xem xét schema 
- * cho việc test cơ sở dữ liệu toàn diện.
- * 
- * Schema validation test class that verifies the database schema aligns with 
- * business requirements and checks if the designed schema matches the 
- * implemented schema. This addresses schema review requirements for 
- * comprehensive database testing.
+ * Schema validation tests ensure the database schema aligns with
+ * business requirements and that the implemented schema matches the design.
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class SchemaValidationTest {
 
-    // Logger để ghi log thông tin test
+    // Logger for test information
     private static final Logger logger = LoggerFactory.getLogger(SchemaValidationTest.class);
     
-    // Quản lý kết nối cơ sở dữ liệu
+    // Database connection manager
     private DatabaseConnectionManager connectionManager;
-    // Metadata của cơ sở dữ liệu để truy vấn thông tin schema
+    // Database metadata for schema inspection
     private DatabaseMetaData metaData;
 
     /**
-     * Thiết lập môi trường test trước mỗi test case
-     * Khởi tạo kết nối và metadata
+     * Setup before each test: initialize connection and metadata
      */
     @BeforeEach
     void setUp() throws Exception {
-        logger.info("Thiết lập test xác minh schema");
+        logger.info("Setting up schema validation tests");
         connectionManager = DatabaseConnectionManager.getInstance();
         metaData = connectionManager.getConnection().getMetaData();
-        logger.info("Thiết lập test xác minh schema hoàn tất");
+        logger.info("Finished setting up schema validation tests");
     }
 
     /**
-     * Dọn dẹp sau mỗi test case
-     * Đóng kết nối cơ sở dữ liệu
+     * Cleanup after each test: close database connection
      */
     @AfterEach
     void tearDown() throws Exception {
@@ -59,20 +50,19 @@ public class SchemaValidationTest {
     }
 
     // ===============================
-    // XÁC MINH CẤU TRÚC BẢNG
+    // VALIDATE TABLE STRUCTURE
     // ===============================
 
     /**
-     * Xác minh các bảng bắt buộc tồn tại
-     * Kiểm tra rằng tất cả các bảng cần thiết cho hệ thống e-commerce đều có mặt
+     * Validates that required tables exist for the e-commerce system
      */
     @Test
     @Order(1)
-    @DisplayName("Xác Minh Các Bảng Bắt Buộc Tồn Tại")
+    @DisplayName("Validate Required Tables Exist")
     void validateRequiredTablesExist() throws SQLException {
-        logger.info("Xác minh các bảng bắt buộc tồn tại theo yêu cầu e-commerce");
+        logger.info("Validating required tables exist for e-commerce requirements");
 
-        // Định nghĩa các bảng bắt buộc cho hệ thống e-commerce
+        // Required tables for the e-commerce system
         String[] requiredTables = {
             "users", "products", "orders", "order_items", "reviews"
         };
@@ -86,22 +76,21 @@ public class SchemaValidationTest {
 
         for (String requiredTable : requiredTables) {
             assertTrue(existingTables.contains(requiredTable.toLowerCase()),
-                    "Bảng bắt buộc '" + requiredTable + "' phải tồn tại cho hệ thống e-commerce");
-            logger.info("✓ Bảng bắt buộc '{}' tồn tại", requiredTable);
+                    "Required table '" + requiredTable + "' must exist for the e-commerce system");
+            logger.info("✓ Required table '{}' exists", requiredTable);
         }
 
-        logger.info("Tất cả xác minh bảng bắt buộc thành công");
+        logger.info("All required tables validated successfully");
     }
 
     /**
-     * Xác minh schema bảng users
-     * Kiểm tra cấu trúc cột của bảng users theo yêu cầu nghiệp vụ
+     * Validates the users table schema according to business requirements
      */
     @Test
     @Order(2)
-    @DisplayName("Xác Minh Schema Bảng Users")
+    @DisplayName("Validate Users Table Schema")
     void validateUserTableSchema() throws SQLException {
-        logger.info("Xác minh schema bảng users cho yêu cầu nghiệp vụ");
+        logger.info("Validating users table schema against business requirements");
 
         // Định nghĩa các cột mong đợi cho bảng users
         Map<String, ColumnSpec> expectedColumns = new HashMap<>();
@@ -127,30 +116,29 @@ public class SchemaValidationTest {
 
             ColumnInfo actualInfo = actualColumns.get(columnName);
 
-            // Xác minh kiểu dữ liệu (kiểm tra đơn giản)
+            // Validate data type (simple check)
             String actualType = actualInfo.typeName.toUpperCase();
             String expectedType = expectedSpec.dataType.toUpperCase();
             
             assertTrue(actualType.contains(expectedType) || typeMatches(actualType, expectedType),
-                    String.format("Cột '%s' phải có kiểu %s nhưng là %s", 
+                    String.format("Column '%s' must have type %s but is %s", 
                             columnName, expectedType, actualType));
 
-            logger.info("✓ Xác minh cột '{}' thành công: {} ({})", 
+            logger.info("✓ Column '{}' validated: {} ({})", 
                     columnName, actualType, expectedSpec.nullable ? "nullable" : "not null");
         }
 
-        logger.info("Xác minh schema bảng users thành công");
+        logger.info("Users table schema validation passed");
     }
 
     /**
-     * Xác minh các hàm bắt buộc tồn tại
-     * Kiểm tra rằng tất cả các hàm cơ sở dữ liệu cần thiết đều có mặt
+     * Validates required database functions exist
      */
     @Test
     @Order(3)
-    @DisplayName("Xác Minh Các Hàm Bắt Buộc Tồn Tại")
+    @DisplayName("Validate Required Functions Exist")
     void validateRequiredFunctionsExist() throws SQLException {
-        logger.info("Xác minh các hàm cơ sở dữ liệu bắt buộc tồn tại");
+        logger.info("Validating required database functions exist");
 
         String[] requiredFunctions = {
             "calculate_order_total",
@@ -160,22 +148,21 @@ public class SchemaValidationTest {
 
         for (String functionName : requiredFunctions) {
             boolean exists = checkFunctionExists(functionName);
-            assertTrue(exists, "Hàm bắt buộc '" + functionName + "' phải tồn tại");
-            logger.info("✓ Hàm bắt buộc '{}' tồn tại", functionName);
+            assertTrue(exists, "Required function '" + functionName + "' must exist");
+            logger.info("✓ Required function '{}' exists", functionName);
         }
 
-        logger.info("Xác minh các hàm bắt buộc thành công");
+        logger.info("All required functions validated successfully");
     }
 
     /**
-     * Xác minh các stored procedure bắt buộc tồn tại
-     * Kiểm tra rằng tất cả các stored procedure cần thiết đều có mặt
+     * Validates required stored procedures exist
      */
     @Test
     @Order(4)
-    @DisplayName("Xác Minh Các Stored Procedure Bắt Buộc Tồn Tại")
+    @DisplayName("Validate Required Stored Procedures Exist")
     void validateRequiredStoredProceduresExist() throws SQLException {
-        logger.info("Xác minh các stored procedure bắt buộc tồn tại");
+        logger.info("Validating required stored procedures exist");
 
         // Các stored procedure bắt buộc cần tồn tại
         String[] requiredProcedures = {
@@ -184,22 +171,21 @@ public class SchemaValidationTest {
 
         for (String procedureName : requiredProcedures) {
             boolean exists = checkProcedureExists(procedureName);
-            assertTrue(exists, "Stored procedure bắt buộc '" + procedureName + "' phải tồn tại");
-            logger.info("✓ Stored procedure bắt buộc '{}' tồn tại", procedureName);
+            assertTrue(exists, "Required stored procedure '" + procedureName + "' must exist");
+            logger.info("✓ Required stored procedure '{}' exists", procedureName);
         }
 
-        logger.info("Xác minh stored procedure bắt buộc thành công (không có yêu cầu cho hệ thống hiện tại)");
+        logger.info("Required stored procedures validation passed (none specifically required beyond baseline)");
     }
 
     /**
-     * Xác minh các trigger bắt buộc tồn tại
-     * Kiểm tra rằng tất cả các trigger cần thiết đều có mặt
+     * Validates required triggers exist
      */
     @Test
     @Order(5)
-    @DisplayName("Xác Minh Các Trigger Bắt Buộc Tồn Tại")
+    @DisplayName("Validate Required Triggers Exist")
     void validateRequiredTriggersExist() throws SQLException {
-        logger.info("Xác minh các trigger bắt buộc tồn tại");
+        logger.info("Validating required triggers exist");
 
         // Các trigger bắt buộc cần tồn tại
         String[] requiredTriggers = {
@@ -208,11 +194,11 @@ public class SchemaValidationTest {
 
         for (String triggerName : requiredTriggers) {
             boolean exists = checkTriggerExists(triggerName);
-            assertTrue(exists, "Trigger bắt buộc '" + triggerName + "' phải tồn tại");
-            logger.info("✓ Trigger bắt buộc '{}' tồn tại", triggerName);
+            assertTrue(exists, "Required trigger '" + triggerName + "' must exist");
+            logger.info("✓ Required trigger '{}' exists", triggerName);
         }
 
-        logger.info("Xác minh trigger bắt buộc thành công (không có yêu cầu cho hệ thống hiện tại)");
+        logger.info("Required triggers validation passed (none specifically required beyond baseline)");
     }
 
     // ===============================
@@ -314,14 +300,14 @@ public class SchemaValidationTest {
         }
     }
 
-    // Lớp hỗ trợ
+    // Support classes
     /**
-     * Đặc tả cột chứa thông tin về kiểu dữ liệu, nullable và unique
+     * Column specification containing data type, nullability, and uniqueness
      */
     private static class ColumnSpec {
-        final String dataType;      // Kiểu dữ liệu
-        final boolean nullable;     // Có cho phép null không
-        final boolean unique;       // Có unique constraint không
+        final String dataType;      // Data type
+        final boolean nullable;     // Nullable or not
+        final boolean unique;       // Has unique constraint
 
         ColumnSpec(String dataType, boolean nullable, boolean unique) {
             this.dataType = dataType;
@@ -331,11 +317,11 @@ public class SchemaValidationTest {
     }
 
     /**
-     * Thông tin cột thực tế từ metadata
+     * Actual column info from metadata
      */
     private static class ColumnInfo {
-        final String typeName;      // Tên kiểu dữ liệu
-        final boolean nullable;     // Có cho phép null không
+        final String typeName;      // Data type name
+        final boolean nullable;     // Nullable or not
 
         ColumnInfo(String typeName, boolean nullable) {
             this.typeName = typeName;

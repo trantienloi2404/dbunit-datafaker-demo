@@ -16,28 +16,23 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Lớp test chức năng cho cơ sở dữ liệu thông qua các phương thức DAO.
- * Chứng minh việc test logic nghiệp vụ thông qua DAO như yêu cầu
- * cho việc test cơ sở dữ liệu toàn diện sử dụng mô hình DAO/DTO.
- * 
- * Functional test class for testing business logic through DAO methods.
- * This demonstrates functional testing of database business logic as required
- * for comprehensive database testing coverage using the DAO/DTO pattern.
+ * Functional tests for the database through DAO methods.
+ * Demonstrates testing of business logic using the DAO/DTO pattern.
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class DatabaseFunctionalTest {
 
-    // Logger để ghi log thông tin test
+    // Logger for test information
     private static final Logger logger = LoggerFactory.getLogger(DatabaseFunctionalTest.class);
     
-    // Quản lý kết nối cơ sở dữ liệu
+    // Database connection manager
     private DatabaseConnectionManager connectionManager;
-    // Bộ tạo dữ liệu test sử dụng DataFaker
+    // Test data generator using DataFaker
     private TestDataGenerator dataGenerator;
-    // Tóm tắt dữ liệu test đã tạo
+    // Summary of generated test data
     private TestDataGenerator.TestDataSummary testDataSummary;
     
-    // Các instance DAO để tương tác với cơ sở dữ liệu
+    // DAO instances to interact with the database
     private UserDao userDao;
     private ProductDao productDao;
     private OrderDao orderDao;
@@ -45,12 +40,11 @@ public class DatabaseFunctionalTest {
     private ReviewDao reviewDao;
 
     /**
-     * Thiết lập môi trường test trước mỗi test case
-     * Khởi tạo kết nối, DAO và tạo dữ liệu test
+     * Setup before each test case: initialize connection, DAOs, and seed test data
      */
     @BeforeEach
     void setUp() throws Exception {
-        logger.info("Thiết lập test chức năng cơ sở dữ liệu");
+        logger.info("Setting up database functional tests");
 
         // Khởi tạo quản lý kết nối và các DAO
         connectionManager = DatabaseConnectionManager.getInstance();
@@ -60,26 +54,25 @@ public class DatabaseFunctionalTest {
         orderItemDao = new OrderItemDaoImpl();
         reviewDao = new ReviewDaoImpl();
         
-        // Tạo bộ tạo dữ liệu và tạo dữ liệu test
+        // Create generator and seed test data
         dataGenerator = new TestDataGenerator(12345L);
         testDataSummary = dataGenerator.generateCompleteTestData(5, 10, 3);
         connectionManager.commit();
 
-        logger.info("Thiết lập test chức năng hoàn tất");
+        logger.info("Finished setting up functional tests");
     }
 
     /**
-     * Dọn dẹp sau mỗi test case
-     * Xóa dữ liệu test và đóng kết nối
+     * Cleanup after each test case: remove test data and close connection
      */
     @AfterEach
     void tearDown() throws Exception {
         if (connectionManager != null && testDataSummary != null) {
             try {
-                logger.info("Dọn dẹp dữ liệu test chức năng");
+                logger.info("Cleaning up functional test data");
                 dataGenerator.cleanupTestData(testDataSummary);
                 connectionManager.commit();
-                logger.info("Dọn dẹp test chức năng hoàn tất");
+                logger.info("Finished cleaning up functional tests");
             } finally {
                 connectionManager.closeConnection();
             }
@@ -87,128 +80,124 @@ public class DatabaseFunctionalTest {
     }
 
     // ===============================
-    // TEST CHỨC NĂNG
+    // FUNCTIONAL TESTS
     // ===============================
 
     /**
-     * Test hàm tính tổng đơn hàng trong cơ sở dữ liệu
-     * Kiểm tra các hàm tính toán tổng tiền với thuế mặc định và tùy chỉnh
+     * Tests order total calculation functions (default and custom tax)
      */
     @Test
     @Order(1)
-    @DisplayName("Test Hàm Tính Tổng Đơn Hàng")
+    @DisplayName("Test Order Total Calculation Functions")
     void testCalculateOrderTotalFunction() throws Exception {
-        logger.info("Test hàm calculate_order_total");
+        logger.info("Testing calculate_order_total functions");
 
         // Lấy một đơn hàng test
         Long orderId = testDataSummary.getOrderIds().get(0);
         
-        // Test với thuế suất mặc định (8.75%)
+        // Default tax rate (8.75%)
         BigDecimal totalWithTax = orderDao.calculateOrderTotal(orderId);
-        assertNotNull(totalWithTax, "Hàm phải trả về kết quả");
+        assertNotNull(totalWithTax, "Function must return a value");
         assertTrue(totalWithTax.compareTo(BigDecimal.ZERO) > 0, 
-                "Tổng tiền với thuế phải dương");
+                "Total with tax must be positive");
         
-        logger.info("Đơn hàng {} tổng tiền với thuế mặc định: {}", orderId, totalWithTax);
+        logger.info("Order {} total with default tax: {}", orderId, totalWithTax);
 
-        // Test với thuế suất tùy chỉnh (10%) sử dụng hàm riêng biệt
+        // Custom tax rate (10%) using separate function
         BigDecimal customTaxRate = new BigDecimal("0.10"); // 10%
         BigDecimal totalWithCustomTax = orderDao.calculateOrderTotalWithTax(orderId, customTaxRate);
-        assertNotNull(totalWithCustomTax, "Hàm phải trả về kết quả");
+        assertNotNull(totalWithCustomTax, "Function must return a value");
         assertTrue(totalWithCustomTax.compareTo(BigDecimal.ZERO) > 0, 
-                "Tổng tiền với thuế tùy chỉnh phải dương");
+                "Total with custom tax must be positive");
         
-        logger.info("Đơn hàng {} tổng tiền với thuế 10%: {}", orderId, totalWithCustomTax);
+        logger.info("Order {} total with 10% tax: {}", orderId, totalWithCustomTax);
 
-        logger.info("Test hàm calculate_order_total thành công");
+        logger.info("Order total calculation functions test passed");
     }
 
     /**
-     * Test quản lý tồn kho sản phẩm
-     * Kiểm tra logic giảm và tăng số lượng tồn kho
+     * Tests product stock management: decrease and increase stock
      */
     @Test
     @Order(2)
-    @DisplayName("Test Quản Lý Tồn Kho Sản Phẩm")
+    @DisplayName("Test Product Stock Management")
     void testProductStockManagement() throws SQLException {
-        logger.info("Test quản lý tồn kho sản phẩm");
+        logger.info("Testing product stock management");
 
-        // Lấy một sản phẩm test
+        // Pick a product
         Long productId = testDataSummary.getProductIds().get(0);
         ProductDto product = productDao.findById(productId).orElseThrow();
         int initialStock = product.getStockQuantity();
         
-        logger.info("Tồn kho ban đầu cho sản phẩm {}: {}", productId, initialStock);
+        logger.info("Initial stock for product {}: {}", productId, initialStock);
 
-        // Test giảm tồn kho
+        // Decrease stock
         int reductionAmount = 5;
         productDao.reduceStock(productId, reductionAmount);
         connectionManager.commit();
         
         ProductDto updatedProduct = productDao.findById(productId).orElseThrow();
         assertEquals(initialStock - reductionAmount, updatedProduct.getStockQuantity(), 
-                "Tồn kho phải được giảm đúng cách");
+                "Stock must decrease correctly");
         
-        logger.info("Tồn kho sau khi giảm: {}", updatedProduct.getStockQuantity());
+        logger.info("Stock after decrease: {}", updatedProduct.getStockQuantity());
 
-        // Test tăng tồn kho
+        // Increase stock
         int increaseAmount = 3;
         productDao.increaseStock(productId, increaseAmount);
         connectionManager.commit();
         
         ProductDto finalProduct = productDao.findById(productId).orElseThrow();
         assertEquals(initialStock - reductionAmount + increaseAmount, finalProduct.getStockQuantity(), 
-                "Tồn kho phải được tăng đúng cách");
+                "Stock must increase correctly");
         
-        logger.info("Tồn kho sau khi tăng: {}", finalProduct.getStockQuantity());
+        logger.info("Stock after increase: {}", finalProduct.getStockQuantity());
 
-        logger.info("Test quản lý tồn kho sản phẩm thành công");
+        logger.info("Product stock management test passed");
     }
 
     /**
-     * Test quy trình trạng thái đơn hàng
-     * Kiểm tra logic cập nhật trạng thái đơn hàng từ PENDING đến DELIVERED
+     * Tests order status workflow (PENDING -> CONFIRMED -> SHIPPED -> DELIVERED)
      */
     @Test
     @Order(3)
-    @DisplayName("Test Quy Trình Trạng Thái Đơn Hàng")
+    @DisplayName("Test Order Status Workflow")
     void testOrderStatusWorkflow() throws SQLException {
-        logger.info("Test quy trình trạng thái đơn hàng");
+        logger.info("Testing order status workflow");
 
-        // Lấy một đơn hàng test
+        // Pick an order
         Long orderId = testDataSummary.getOrderIds().get(0);
         OrderDto order = orderDao.findById(orderId).orElseThrow();
         
-        logger.info("Trạng thái ban đầu của đơn hàng {}: {}", orderId, order.getStatus());
+        logger.info("Initial status of order {}: {}", orderId, order.getStatus());
 
-        // Test cập nhật trạng thái theo quy trình nghiệp vụ
-        // PENDING -> CONFIRMED -> SHIPPED -> DELIVERED
+        // Update in workflow: PENDING -> CONFIRMED -> SHIPPED -> DELIVERED
         
-        // Cập nhật thành CONFIRMED
+        // CONFIRMED
         orderDao.updateStatus(orderId, "CONFIRMED");
         connectionManager.commit();
         
         OrderDto confirmedOrder = orderDao.findById(orderId).orElseThrow();
-        assertEquals("CONFIRMED", confirmedOrder.getStatus(), "Trạng thái phải được cập nhật thành CONFIRMED");
+        assertEquals("CONFIRMED", confirmedOrder.getStatus(), "Status must update to CONFIRMED");
         
-        // Cập nhật thành SHIPPED
+        // SHIPPED
         orderDao.updateStatus(orderId, "SHIPPED");
         connectionManager.commit();
         
         OrderDto shippedOrder = orderDao.findById(orderId).orElseThrow();
-        assertEquals("SHIPPED", shippedOrder.getStatus(), "Trạng thái phải được cập nhật thành SHIPPED");
-        assertNotNull(shippedOrder.getShippedDate(), "Ngày gửi hàng phải được cập nhật");
+        assertEquals("SHIPPED", shippedOrder.getStatus(), "Status must update to SHIPPED");
+        assertNotNull(shippedOrder.getShippedDate(), "Shipped date must be set");
         
-        // Cập nhật thành DELIVERED
+        // DELIVERED
         orderDao.updateStatus(orderId, "DELIVERED");
         connectionManager.commit();
         
         OrderDto deliveredOrder = orderDao.findById(orderId).orElseThrow();
-        assertEquals("DELIVERED", deliveredOrder.getStatus(), "Trạng thái phải được cập nhật thành DELIVERED");
+        assertEquals("DELIVERED", deliveredOrder.getStatus(), "Status must update to DELIVERED");
         
-        logger.info("Quy trình trạng thái đơn hàng hoàn tất: {} -> {} -> {} -> {}", 
+        logger.info("Order status workflow completed: {} -> {} -> {} -> {}", 
                 order.getStatus(), "CONFIRMED", "SHIPPED", "DELIVERED");
 
-        logger.info("Test quy trình trạng thái đơn hàng thành công");
+        logger.info("Order status workflow test passed");
     }
 } 

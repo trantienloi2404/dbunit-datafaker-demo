@@ -17,27 +17,23 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Lớp test tích hợp cho chức năng DataFaker với lớp DAO.
- * Test việc tạo dữ liệu thực tế và tích hợp cơ sở dữ liệu thông qua các phương
- * thức DAO.
- * 
- * Integration test class for DataFaker functionality with DAO layer.
+ * Integration tests for DataFaker with the DAO layer.
  * Tests realistic data generation and database integration through DAO methods.
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class DataFakerIntegrationTest {
 
-    // Logger để ghi log thông tin test
+    // Logger for test information
     private static final Logger logger = LoggerFactory.getLogger(DataFakerIntegrationTest.class);
 
-    // Quản lý kết nối cơ sở dữ liệu
+    // Database connection manager
     private DatabaseConnectionManager connectionManager;
-    // Bộ tạo dữ liệu test sử dụng DataFaker
+    // Test data generator using DataFaker
     private TestDataGenerator dataGenerator;
-    // Tóm tắt dữ liệu test đã tạo
+    // Summary of generated test data
     private TestDataGenerator.TestDataSummary testDataSummary;
 
-    // Các instance DAO để tương tác với cơ sở dữ liệu
+    // DAO instances to interact with the database
     private UserDao userDao;
     private ProductDao productDao;
     private OrderDao orderDao;
@@ -45,12 +41,11 @@ public class DataFakerIntegrationTest {
     private ReviewDao reviewDao;
 
     /**
-     * Thiết lập môi trường test trước mỗi test case
-     * Khởi tạo kết nối và DAO
+     * Setup before each test case: initialize connection and DAOs
      */
     @BeforeEach
     void setUp() throws Exception {
-        logger.info("Thiết lập test tích hợp DataFaker");
+        logger.info("Setting up DataFaker integration tests");
 
         // Khởi tạo quản lý kết nối và các DAO
         connectionManager = DatabaseConnectionManager.getInstance();
@@ -60,24 +55,23 @@ public class DataFakerIntegrationTest {
         orderItemDao = new OrderItemDaoImpl();
         reviewDao = new ReviewDaoImpl();
 
-        // Tạo bộ tạo dữ liệu với seed cố định để test có thể tái tạo
+        // Create generator with fixed seed for reproducibility
         dataGenerator = new TestDataGenerator(12345L);
 
-        logger.info("Thiết lập test tích hợp DataFaker hoàn tất");
+        logger.info("Finished setting up DataFaker integration tests");
     }
 
     /**
-     * Dọn dẹp sau mỗi test case
-     * Xóa dữ liệu test và đóng kết nối
+     * Cleanup after each test case: remove test data and close connection
      */
     @AfterEach
     void tearDown() throws Exception {
         if (connectionManager != null && testDataSummary != null) {
             try {
-                logger.info("Dọn dẹp dữ liệu test DataFaker");
+                logger.info("Cleaning up DataFaker test data");
                 dataGenerator.cleanupTestData(testDataSummary);
                 connectionManager.commit();
-                logger.info("Dọn dẹp test DataFaker hoàn tất");
+                logger.info("Finished cleaning up DataFaker tests");
             } finally {
                 connectionManager.closeConnection();
             }
@@ -85,163 +79,160 @@ public class DataFakerIntegrationTest {
     }
 
     /**
-     * Test tính duy nhất và tính toàn vẹn của dữ liệu
-     * Kiểm tra rằng dữ liệu được tạo không có trùng lặp và đảm bảo tính toàn vẹn
+     * Tests data uniqueness and integrity
      */
     @Test
     @Order(1)
-    @DisplayName("Test Tính Duy Nhất Và Tính Toàn Vẹn Dữ Liệu")
+    @DisplayName("Test Data Uniqueness And Integrity")
     void testDataUniquenessAndIntegrity() throws Exception {
-        logger.info("Test tính duy nhất và tính toàn vẹn dữ liệu");
+        logger.info("Testing data uniqueness and integrity");
 
         // Tạo bộ dữ liệu với khả năng trùng lặp
         testDataSummary = dataGenerator.generateCompleteTestData(10, 15, 8);
         connectionManager.commit();
 
-        // Test tính duy nhất username
+        // Username uniqueness
         List<UserDto> allUsers = userDao.findAll();
         Set<String> usernames = new HashSet<>();
         for (UserDto user : allUsers) {
             assertFalse(usernames.contains(user.getUsername()),
-                    "Tất cả username phải duy nhất: " + user.getUsername());
+                    "All usernames must be unique: " + user.getUsername());
             usernames.add(user.getUsername());
         }
 
-        // Test tính duy nhất email
+        // Email uniqueness
         Set<String> emails = new HashSet<>();
         for (UserDto user : allUsers) {
             assertFalse(emails.contains(user.getEmail()),
-                    "Tất cả email phải duy nhất: " + user.getEmail());
+                    "All emails must be unique: " + user.getEmail());
             emails.add(user.getEmail());
         }
 
-        // Test tính duy nhất SKU sản phẩm
+        // Product SKU uniqueness
         List<ProductDto> allProducts = productDao.findAll();
         Set<String> skus = new HashSet<>();
         for (ProductDto product : allProducts) {
             assertFalse(skus.contains(product.getSku()),
-                    "Tất cả SKU sản phẩm phải duy nhất: " + product.getSku());
+                    "All product SKUs must be unique: " + product.getSku());
             skus.add(product.getSku());
         }
 
-        // Test tính toàn vẹn khóa ngoại - đơn hàng phải có tham chiếu user hợp lệ
+        // Foreign key integrity: orders must reference a valid user
         List<OrderDto> allOrders = orderDao.findAll();
         for (OrderDto order : allOrders) {
             UserDto user = userDao.findById(order.getUserId()).orElse(null);
-            assertNotNull(user, "Tất cả đơn hàng phải có tham chiếu user hợp lệ");
+            assertNotNull(user, "All orders must have a valid user reference");
         }
 
-        logger.info("Test tính duy nhất và tính toàn vẹn dữ liệu thành công");
+        logger.info("Data uniqueness and integrity test passed");
     }
 
     /**
-     * Test chất lượng và tính thực tế của dữ liệu
-     * Kiểm tra rằng dữ liệu được tạo có chất lượng tốt và thực tế
+     * Tests data quality and realism
      */
     @Test
     @Order(2)
-    @DisplayName("Test Chất Lượng Và Tính Thực Tế Dữ Liệu")
+    @DisplayName("Test Data Quality And Realism")
     void testDataQualityAndRealism() throws Exception {
-        logger.info("Test chất lượng và tính thực tế dữ liệu");
+        logger.info("Testing data quality and realism");
 
         // Tạo dữ liệu test
         testDataSummary = dataGenerator.generateCompleteTestData(20, 30, 15);
         connectionManager.commit();
 
-        // Test chất lượng dữ liệu user
+        // User data quality
         List<UserDto> users = userDao.findAll();
         for (UserDto user : users) {
-            // Kiểm tra email hợp lệ
-            assertTrue(user.getEmail().contains("@"), "Email phải chứa ký tự @");
-            assertTrue(user.getEmail().contains("."), "Email phải chứa dấu chấm");
+            // Email validation (very basic)
+            assertTrue(user.getEmail().contains("@"), "Email must contain '@'");
+            assertTrue(user.getEmail().contains("."), "Email must contain '.'");
             
-            // Kiểm tra tên không rỗng
-            assertFalse(user.getFirstName().trim().isEmpty(), "Tên không được rỗng");
-            assertFalse(user.getLastName().trim().isEmpty(), "Họ không được rỗng");
+            // Non-empty names
+            assertFalse(user.getFirstName().trim().isEmpty(), "First name must not be empty");
+            assertFalse(user.getLastName().trim().isEmpty(), "Last name must not be empty");
             
-            // Kiểm tra username hợp lệ
-            assertTrue(user.getUsername().length() >= 3, "Username phải có ít nhất 3 ký tự");
-            assertTrue(user.getUsername().matches("^[a-zA-Z0-9._-]+$"), "Username chỉ chứa ký tự hợp lệ");
+            // Username validation
+            assertTrue(user.getUsername().length() >= 3, "Username must be at least 3 characters");
+            assertTrue(user.getUsername().matches("^[a-zA-Z0-9._-]+$"), "Username must contain only valid characters");
         }
 
-        // Test chất lượng dữ liệu sản phẩm
+        // Product data quality
         List<ProductDto> products = productDao.findAll();
         for (ProductDto product : products) {
-            // Kiểm tra giá dương
+            // Positive price
             assertTrue(product.getPrice().compareTo(java.math.BigDecimal.ZERO) > 0, 
-                    "Giá sản phẩm phải dương");
+                    "Product price must be positive");
             
-            // Kiểm tra tên sản phẩm không rỗng
-            assertFalse(product.getName().trim().isEmpty(), "Tên sản phẩm không được rỗng");
+            // Non-empty product name
+            assertFalse(product.getName().trim().isEmpty(), "Product name must not be empty");
             
-            // Kiểm tra SKU hợp lệ
-            assertTrue(product.getSku().length() >= 5, "SKU phải có ít nhất 5 ký tự");
-            assertTrue(product.getSku().matches("^[A-Z0-9-]+$"), "SKU chỉ chứa ký tự in hoa, số và dấu gạch ngang");
+            // SKU validation
+            assertTrue(product.getSku().length() >= 5, "SKU must be at least 5 characters");
+            assertTrue(product.getSku().matches("^[A-Z0-9-]+$"), "SKU must be uppercase letters, digits, or hyphens");
             
-            // Kiểm tra số lượng tồn kho hợp lệ
-            assertTrue(product.getStockQuantity() >= 0, "Số lượng tồn kho phải không âm");
+            // Non-negative stock
+            assertTrue(product.getStockQuantity() >= 0, "Stock quantity must be non-negative");
         }
 
-        // Test chất lượng dữ liệu đơn hàng
+        // Order data quality
         List<OrderDto> orders = orderDao.findAll();
         for (OrderDto order : orders) {
-            // Kiểm tra tổng tiền dương
+            // Positive total
             assertTrue(order.getTotalAmount().compareTo(java.math.BigDecimal.ZERO) > 0, 
-                    "Tổng tiền đơn hàng phải dương");
+                    "Order total must be positive");
             
-            // Kiểm tra trạng thái hợp lệ
+            // Valid status
             assertTrue(order.getStatus().matches("PENDING|CONFIRMED|SHIPPED|DELIVERED|CANCELLED"), 
-                    "Trạng thái đơn hàng phải hợp lệ");
+                    "Order status must be valid");
             
-            // Kiểm tra số đơn hàng hợp lệ
-            assertTrue(order.getOrderNumber().startsWith("ORD"), "Số đơn hàng phải bắt đầu bằng ORD");
+            // Valid order number
+            assertTrue(order.getOrderNumber().startsWith("ORD"), "Order number must start with ORD");
         }
 
-        logger.info("Test chất lượng và tính thực tế dữ liệu thành công");
+        logger.info("Data quality and realism test passed");
     }
 
     /**
-     * Test chức năng dọn dẹp
-     * Kiểm tra rằng dữ liệu test có thể được dọn dẹp hoàn toàn
+     * Tests cleanup functionality: test data can be fully removed
      */
     @Test
     @Order(3)
-    @DisplayName("Test Chức Năng Dọn Dẹp")
+    @DisplayName("Test Cleanup Functionality")
     void testCleanupFunctionality() throws Exception {
-        logger.info("Test chức năng dọn dẹp");
+        logger.info("Testing cleanup functionality");
 
         // Tạo dữ liệu test
         testDataSummary = dataGenerator.generateCompleteTestData(5, 8, 3);
         connectionManager.commit();
 
-        // Xác minh dữ liệu tồn tại
+        // Verify data exists
         long initialUserCount = userDao.count();
         long initialProductCount = productDao.count();
         long initialOrderCount = orderDao.count();
 
-        assertTrue(initialUserCount >= 5, "Phải có ít nhất 5 user");
-        assertTrue(initialProductCount >= 8, "Phải có ít nhất 8 sản phẩm");
-        assertTrue(initialOrderCount >= 3, "Phải có ít nhất 3 đơn hàng");
+        assertTrue(initialUserCount >= 5, "There must be at least 5 users");
+        assertTrue(initialProductCount >= 8, "There must be at least 8 products");
+        assertTrue(initialOrderCount >= 3, "There must be at least 3 orders");
 
         // Thực hiện dọn dẹp
         dataGenerator.cleanupTestData(testDataSummary);
         connectionManager.commit();
 
-        // Xác minh dữ liệu đã được dọn dẹp
+        // Verify data was cleaned up
         long finalUserCount = userDao.count();
         long finalProductCount = productDao.count();
         long finalOrderCount = orderDao.count();
 
-        // Lưu ý: Dọn dẹp chỉ xóa dữ liệu test, không xóa dữ liệu gốc
-        assertTrue(finalUserCount <= initialUserCount, "Số user phải giảm sau khi dọn dẹp");
-        assertTrue(finalProductCount <= initialProductCount, "Số sản phẩm phải giảm sau khi dọn dẹp");
-        assertTrue(finalOrderCount <= initialOrderCount, "Số đơn hàng phải giảm sau khi dọn dẹp");
+        // Note: cleanup only removes test data, not base data
+        assertTrue(finalUserCount <= initialUserCount, "User count must not increase after cleanup");
+        assertTrue(finalProductCount <= initialProductCount, "Product count must not increase after cleanup");
+        assertTrue(finalOrderCount <= initialOrderCount, "Order count must not increase after cleanup");
 
-        logger.info("Dọn dẹp thành công - Users: {} -> {}, Products: {} -> {}, Orders: {} -> {}", 
+        logger.info("Cleanup complete - Users: {} -> {}, Products: {} -> {}, Orders: {} -> {}", 
                 initialUserCount, finalUserCount, initialProductCount, finalProductCount, 
                 initialOrderCount, finalOrderCount);
 
-        // Reset testDataSummary để tránh dọn dẹp lại trong tearDown
+        // Reset to avoid double-clean in tearDown
         testDataSummary = null;
     }
 }

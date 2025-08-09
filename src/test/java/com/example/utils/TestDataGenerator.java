@@ -16,23 +16,20 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 /**
- * Lớp tiện ích để tạo dữ liệu test thực tế sử dụng DataFaker và lớp DAO.
- * Tạo dữ liệu test thông qua các phương thức DAO thay vì SQL trực tiếp hoặc dataset DBUnit.
- * 
- * Utility class for generating realistic test data using DataFaker and DAO layer.
- * Creates test data through DAO methods instead of direct SQL or DBUnit datasets.
+ * Utility for generating realistic test data using DataFaker and the DAO layer.
+ * Creates test data via DAO methods instead of direct SQL or DBUnit datasets.
  */
 public class TestDataGenerator {
     
-    // Logger để ghi log thông tin
+    // Logger for information
     private static final Logger logger = LoggerFactory.getLogger(TestDataGenerator.class);
     
-    // Instance DataFaker để tạo dữ liệu thực tế
+    // DataFaker instance for realistic data
     private final Faker faker;
-    // Random generator với seed cố định để có thể tái tạo
+    // Random generator, optionally with fixed seed for reproducibility
     private final Random random;
     
-    // Các instance DAO để tương tác với cơ sở dữ liệu
+    // DAO instances to interact with the database
     private final UserDao userDao;
     private final ProductDao productDao;
     private final OrderDao orderDao;
@@ -40,19 +37,17 @@ public class TestDataGenerator {
     private final ReviewDao reviewDao;
     private final DatabaseConnectionManager connectionManager;
     
-    // Danh mục sản phẩm
+    // Product categories
     private static final String[] PRODUCT_CATEGORIES = {
         "Electronics", "Furniture", "Kitchen", "Sports", "Books", "Clothing", "Home & Garden", "Toys"
     };
     
-    // Trạng thái đơn hàng
+    // Order statuses
     private static final String[] ORDER_STATUSES = {
         "PENDING", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"
     };
     
-    /**
-     * Constructor mặc định với seed ngẫu nhiên
-     */
+    /** Default constructor with random seed */
     public TestDataGenerator() {
         this.faker = new Faker();
         this.random = new Random();
@@ -64,11 +59,7 @@ public class TestDataGenerator {
         this.connectionManager = DatabaseConnectionManager.getInstance();
     }
     
-    /**
-     * Constructor với seed cố định để có thể tái tạo dữ liệu
-     * 
-     * @param seed seed cho random generator
-     */
+    /** Constructor with fixed seed for reproducible data */
     public TestDataGenerator(long seed) {
         this.faker = new Faker(new Random(seed));
         this.random = new Random(seed);
@@ -81,7 +72,7 @@ public class TestDataGenerator {
     }
     
     /**
-     * Tóm tắt dữ liệu chứa số lượng entity đã tạo và ID.
+     * Summary of generated data: entity counts and IDs.
      */
     public static class TestDataSummary {
         private final List<Long> userIds = new ArrayList<>();
@@ -110,22 +101,22 @@ public class TestDataGenerator {
     }
     
     /**
-     * Tạo một bộ dữ liệu test hoàn chỉnh với users, products, orders, order items và reviews.
-     * 
-     * @param userCount số lượng user cần tạo
-     * @param productCount số lượng sản phẩm cần tạo
-     * @param orderCount số lượng đơn hàng cần tạo
-     * @return TestDataSummary chứa thông tin về dữ liệu đã tạo
-     * @throws SQLException nếu thao tác cơ sở dữ liệu thất bại
+     * Generates a complete test dataset with users, products, orders, order items and reviews.
+     *
+     * @param userCount number of users to create
+     * @param productCount number of products to create
+     * @param orderCount number of orders to create
+     * @return TestDataSummary containing details of generated data
+     * @throws SQLException if any database operation fails
      */
     public TestDataSummary generateCompleteTestData(int userCount, int productCount, int orderCount) throws SQLException {
-        logger.info("Bắt đầu tạo dữ liệu test: {} users, {} products, {} orders", userCount, productCount, orderCount);
+        logger.info("Generating test data: {} users, {} products, {} orders", userCount, productCount, orderCount);
         
         TestDataSummary summary = new TestDataSummary();
         
         try {
             connectionManager.executeInTransaction(() -> {
-                // Tạo các entity theo thứ tự phụ thuộc
+                // Create entities in dependency order
                 generateUsers(userCount, summary);
                 generateProducts(productCount, summary);
                 generateOrders(orderCount, summary);
@@ -133,19 +124,19 @@ public class TestDataGenerator {
                 generateReviews(Math.min(userCount * 2, 50), summary);
             });
             
-            logger.info("Tạo dữ liệu test hoàn tất: {}", summary);
+            logger.info("Finished generating test data: {}", summary);
             return summary;
         } catch (SQLException e) {
-            logger.error("Thất bại khi tạo dữ liệu test", e);
+            logger.error("Failed to generate test data", e);
             throw e;
         }
     }
     
     /**
-     * Tạo users sử dụng UserDao.
-     * 
-     * @param count số lượng user cần tạo
-     * @param summary tóm tắt dữ liệu để lưu ID
+     * Creates users using UserDao.
+     *
+     * @param count number of users to create
+     * @param summary data summary to collect generated IDs
      */
     private void generateUsers(int count, TestDataSummary summary) throws SQLException {
         Set<String> usedUsernames = new HashSet<>();
@@ -165,14 +156,14 @@ public class TestDataGenerator {
             summary.getUserIds().add(createdUser.getId());
         }
         
-        logger.debug("Đã tạo {} users", count);
+        logger.debug("Created {} users", count);
     }
     
     /**
-     * Tạo sản phẩm sử dụng ProductDao.
-     * 
-     * @param count số lượng sản phẩm cần tạo
-     * @param summary tóm tắt dữ liệu để lưu ID
+     * Creates products using ProductDao.
+     *
+     * @param count number of products to create
+     * @param summary data summary to collect generated IDs
      */
     private void generateProducts(int count, TestDataSummary summary) throws SQLException {
         Set<String> usedSkus = new HashSet<>();
@@ -192,14 +183,14 @@ public class TestDataGenerator {
             summary.getProductIds().add(createdProduct.getId());
         }
         
-        logger.debug("Đã tạo {} products", count);
+        logger.debug("Created {} products", count);
     }
     
     /**
-     * Tạo đơn hàng sử dụng OrderDao.
-     * 
-     * @param count số lượng đơn hàng cần tạo
-     * @param summary tóm tắt dữ liệu để lưu ID
+     * Creates orders using OrderDao.
+     *
+     * @param count number of orders to create
+     * @param summary data summary to collect generated IDs
      */
     private void generateOrders(int count, TestDataSummary summary) throws SQLException {
         Set<String> usedOrderNumbers = new HashSet<>();
@@ -207,7 +198,7 @@ public class TestDataGenerator {
         for (int i = 0; i < count; i++) {
             OrderDto order = new OrderDto();
             
-            // User ID ngẫu nhiên từ users đã tạo
+            // Pick a random user ID from created users
             Long userId = summary.getUserIds().get(random.nextInt(summary.getUserIds().size()));
             order.setUserId(userId);
             order.setOrderNumber(generateUniqueOrderNumber(usedOrderNumbers));
@@ -216,7 +207,7 @@ public class TestDataGenerator {
             order.setStatus(ORDER_STATUSES[random.nextInt(ORDER_STATUSES.length)]);
             order.setDeliveryAddress(faker.address().fullAddress());
             
-            // Đặt ngày gửi cho đơn hàng đã gửi/giao
+            // Set shipped date for shipped/delivered orders
             if ("SHIPPED".equals(order.getStatus()) || "DELIVERED".equals(order.getStatus())) {
                 order.setShippedDate(Timestamp.valueOf(LocalDateTime.now().minusDays(random.nextInt(30))));
             }
@@ -225,17 +216,17 @@ public class TestDataGenerator {
             summary.getOrderIds().add(createdOrder.getId());
         }
         
-        logger.debug("Đã tạo {} orders", count);
+        logger.debug("Created {} orders", count);
     }
     
     /**
-     * Tạo chi tiết đơn hàng cho các đơn hàng hiện có sử dụng OrderItemDao.
-     * 
-     * @param summary tóm tắt dữ liệu để lưu ID
+     * Creates order items for existing orders using OrderItemDao.
+     *
+     * @param summary data summary to collect generated IDs
      */
     private void generateOrderItems(TestDataSummary summary) throws SQLException {
         for (Long orderId : summary.getOrderIds()) {
-            // Tạo 1-5 items cho mỗi đơn hàng
+            // Create 1-5 items per order
             int itemCount = random.nextInt(5) + 1;
             Set<Long> usedProductIds = new HashSet<>();
             
@@ -260,14 +251,14 @@ public class TestDataGenerator {
             }
         }
         
-        logger.debug("Đã tạo {} order items", summary.getOrderItemIds().size());
+        logger.debug("Created {} order items", summary.getOrderItemIds().size());
     }
     
     /**
-     * Tạo đánh giá sử dụng ReviewDao.
-     * 
-     * @param count số lượng đánh giá cần tạo
-     * @param summary tóm tắt dữ liệu để lưu ID
+     * Creates reviews using ReviewDao.
+     *
+     * @param count number of reviews to create
+     * @param summary data summary to collect generated IDs
      */
     private void generateReviews(int count, TestDataSummary summary) throws SQLException {
         Set<String> usedUserProductPairs = new HashSet<>();
@@ -278,7 +269,7 @@ public class TestDataGenerator {
             String pairKey = userId + ":" + productId;
             
             if (usedUserProductPairs.contains(pairKey)) {
-                i--; // Thử lại với cặp khác
+                i--; // Retry with a different pair
                 continue;
             }
             
@@ -296,20 +287,20 @@ public class TestDataGenerator {
             summary.getReviewIds().add(createdReview.getId());
         }
         
-        logger.debug("Đã tạo {} reviews", summary.getReviewIds().size());
+        logger.debug("Created {} reviews", summary.getReviewIds().size());
     }
     
     /**
-     * Dọn dẹp tất cả dữ liệu test đã tạo.
-     * 
-     * @param summary tóm tắt dữ liệu cần dọn dẹp
+     * Cleans up all generated test data.
+     *
+     * @param summary summary of test data to clean up
      */
     public void cleanupTestData(TestDataSummary summary) throws SQLException {
-        logger.info("Dọn dẹp dữ liệu test: {}", summary);
+        logger.info("Cleaning up test data: {}", summary);
         
         try {
             connectionManager.executeInTransaction(() -> {
-                // Xóa theo thứ tự phụ thuộc ngược
+                // Delete in reverse dependency order
                 for (Long reviewId : summary.getReviewIds()) {
                     reviewDao.delete(reviewId);
                 }
@@ -331,20 +322,20 @@ public class TestDataGenerator {
                 }
             });
             
-            logger.info("Dọn dẹp dữ liệu test hoàn tất");
+            logger.info("Finished cleaning up test data");
         } catch (SQLException e) {
-            logger.error("Thất bại khi dọn dẹp dữ liệu test", e);
+            logger.error("Failed to clean up test data", e);
             throw e;
         }
     }
     
-    // Phương thức tiện ích cho việc tạo dữ liệu cụ thể
+    // Utility methods for generating specific data
     
     /**
-     * Chỉ tạo users.
-     * 
-     * @param count số lượng user cần tạo
-     * @return danh sách user đã tạo
+     * Generates users only.
+     *
+     * @param count number of users to create
+     * @return list of created users
      */
     public List<UserDto> generateUsers(int count) throws SQLException {
         List<UserDto> users = new ArrayList<>();
@@ -368,10 +359,10 @@ public class TestDataGenerator {
     }
     
     /**
-     * Chỉ tạo sản phẩm.
-     * 
-     * @param count số lượng sản phẩm cần tạo
-     * @return danh sách sản phẩm đã tạo
+     * Generates products only.
+     *
+     * @param count number of products to create
+     * @return list of created products
      */
     public List<ProductDto> generateProducts(int count) throws SQLException {
         List<ProductDto> products = new ArrayList<>();
@@ -394,13 +385,13 @@ public class TestDataGenerator {
         return products;
     }
     
-    // Phương thức hỗ trợ
+    // Helper methods
     
     /**
-     * Tạo username duy nhất.
-     * 
-     * @param usedUsernames tập hợp username đã sử dụng
-     * @return username duy nhất
+     * Generates a unique username.
+     *
+     * @param usedUsernames set of already used usernames
+     * @return unique username
      */
     private String generateUniqueUsername(Set<String> usedUsernames) {
         String username;
@@ -412,10 +403,10 @@ public class TestDataGenerator {
     }
     
     /**
-     * Tạo email duy nhất.
-     * 
-     * @param usedEmails tập hợp email đã sử dụng
-     * @return email duy nhất
+     * Generates a unique email address.
+     *
+     * @param usedEmails set of already used emails
+     * @return unique email
      */
     private String generateUniqueEmail(Set<String> usedEmails) {
         String email;
@@ -427,10 +418,10 @@ public class TestDataGenerator {
     }
     
     /**
-     * Tạo SKU duy nhất.
-     * 
-     * @param usedSkus tập hợp SKU đã sử dụng
-     * @return SKU duy nhất
+     * Generates a unique SKU.
+     *
+     * @param usedSkus set of already used SKUs
+     * @return unique SKU
      */
     private String generateUniqueSku(Set<String> usedSkus) {
         String sku;
@@ -442,10 +433,10 @@ public class TestDataGenerator {
     }
     
     /**
-     * Tạo số đơn hàng duy nhất.
-     * 
-     * @param usedOrderNumbers tập hợp số đơn hàng đã sử dụng
-     * @return số đơn hàng duy nhất
+     * Generates a unique order number.
+     *
+     * @param usedOrderNumbers set of already used order numbers
+     * @return unique order number
      */
     private String generateUniqueOrderNumber(Set<String> usedOrderNumbers) {
         String orderNumber;

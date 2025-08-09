@@ -21,28 +21,24 @@ import java.util.HashSet;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Lớp test xác minh query để xác minh logic nghiệp vụ thông qua các phương thức DAO.
- * Các test xác minh rằng các SQL query của developer (được đóng gói trong lớp DAO) 
- * đúng về mặt cú pháp và logic theo yêu cầu nghiệp vụ.
- * 
- * Query validation test class that validates business logic through DAO methods.
- * Tests verify that the developer's SQL queries (encapsulated in DAO layer) are 
- * syntactically and logically correct according to business requirements.
+ * Query validation tests to verify business logic via DAO methods.
+ * Ensures the SQL queries encapsulated in the DAO layer are syntactically and
+ * logically correct according to business requirements.
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class QueryValidationTest {
 
-    // Logger để ghi log thông tin test
+    // Logger for test information
     private static final Logger logger = LoggerFactory.getLogger(QueryValidationTest.class);
     
-    // Quản lý kết nối cơ sở dữ liệu
+    // Database connection manager
     private DatabaseConnectionManager connectionManager;
-    // Bộ tạo dữ liệu test sử dụng DataFaker
+    // Test data generator using DataFaker
     private TestDataGenerator dataGenerator;
-    // Tóm tắt dữ liệu test đã tạo
+    // Summary of generated test data
     private TestDataGenerator.TestDataSummary testDataSummary;
     
-    // Các instance DAO để tương tác với cơ sở dữ liệu
+    // DAO instances to interact with the database
     private UserDao userDao;
     private ProductDao productDao;
     private OrderDao orderDao;
@@ -50,12 +46,11 @@ public class QueryValidationTest {
     private ReviewDao reviewDao;
 
     /**
-     * Thiết lập môi trường test trước mỗi test case
-     * Khởi tạo kết nối, DAO và tạo dữ liệu test toàn diện
+     * Setup before each test case: initialize connection, DAOs, and generate comprehensive test data
      */
     @BeforeEach
     void setUp() throws Exception {
-        logger.info("Thiết lập test xác minh query");
+        logger.info("Setting up query validation tests");
 
         // Khởi tạo quản lý kết nối và các DAO
         connectionManager = DatabaseConnectionManager.getInstance();
@@ -65,32 +60,31 @@ public class QueryValidationTest {
         orderItemDao = new OrderItemDaoImpl();
         reviewDao = new ReviewDaoImpl();
         
-        // Tạo bộ tạo dữ liệu với seed cố định để test có thể tái tạo
+        // Create generator with fixed seed for reproducibility
         dataGenerator = new TestDataGenerator(12345L);
 
-        // Tạo dữ liệu test toàn diện sử dụng lớp DAO
+        // Generate comprehensive test data via DAOs
         testDataSummary = dataGenerator.generateCompleteTestData(10, 20, 15);
         
-        // Thêm dữ liệu test bổ sung cho việc xác minh query
+        // Add additional test data for query validation
         setupAdditionalTestData();
         
         connectionManager.commit();
 
-        logger.info("Thiết lập test xác minh query hoàn tất");
+        logger.info("Finished setting up query validation tests");
     }
 
     /**
-     * Dọn dẹp sau mỗi test case
-     * Xóa dữ liệu test và đóng kết nối
+     * Cleanup after each test case: remove test data and close connection
      */
     @AfterEach
     void tearDown() throws Exception {
         if (connectionManager != null && testDataSummary != null) {
             try {
-                logger.info("Dọn dẹp dữ liệu test xác minh query");
+                logger.info("Cleaning up query validation test data");
                 dataGenerator.cleanupTestData(testDataSummary);
                 connectionManager.commit();
-                logger.info("Dọn dẹp test xác minh query hoàn tất");
+                logger.info("Finished cleaning up query validation tests");
             } finally {
                 connectionManager.closeConnection();
             }
@@ -98,134 +92,131 @@ public class QueryValidationTest {
     }
 
     /**
-     * Xác minh logic query xác thực user
-     * Kiểm tra rằng chỉ user active mới có thể xác thực
+     * Validates user authentication query logic: only active users can authenticate
      */
     @Test
     @Order(1)
-    @DisplayName("Xác Minh Logic Query Xác Thực User")
+    @DisplayName("Validate User Authentication Query Logic")
     void validateUserAuthenticationQuery() throws SQLException {
-        logger.info("Test logic query xác thực user");
+        logger.info("Testing user authentication query logic");
 
-        // Lấy một user test từ dữ liệu được tạo
+        // Get one user from the generated data
         Long userId = testDataSummary.getUserIds().get(0);
         Optional<UserDto> userOpt = userDao.findById(userId);
-        assertTrue(userOpt.isPresent(), "User test phải tồn tại");
+        assertTrue(userOpt.isPresent(), "Test user must exist");
         UserDto user = userOpt.get();
 
-        // Yêu cầu nghiệp vụ: Xác thực user chỉ thành công cho user active
+        // Business rule: Only active users can authenticate
         Optional<UserDto> foundUser = userDao.findByUsernameOrEmail(user.getUsername());
-        assertTrue(foundUser.isPresent(), "User active phải được tìm thấy để xác thực");
-        assertTrue(foundUser.get().getIsActive(), "User phải active");
-        assertEquals(user.getId(), foundUser.get().getId(), "Phải trả về user đúng");
+        assertTrue(foundUser.isPresent(), "Active user must be found for authentication");
+        assertTrue(foundUser.get().getIsActive(), "User must be active");
+        assertEquals(user.getId(), foundUser.get().getId(), "Should return the correct user");
 
-        // Test vô hiệu hóa - quy tắc nghiệp vụ: user không active không thể xác thực
+        // Deactivate: inactive user should not authenticate
         userDao.deactivate(userId);
         connectionManager.commit();
 
         Optional<UserDto> deactivatedUser = userDao.findByUsernameOrEmail(user.getUsername());
-        assertFalse(deactivatedUser.isPresent(), "User không active không được tìm thấy để xác thực");
+        assertFalse(deactivatedUser.isPresent(), "Inactive user must not be found for authentication");
 
-        // Kích hoạt lại để dọn dẹp
+        // Re-activate for cleanup
         userDao.activate(userId);
         connectionManager.commit();
 
-        logger.info("Xác minh query xác thực user thành công");
+        logger.info("User authentication query validation passed");
     }
 
     /**
-     * Xác minh logic query báo cáo bán hàng
-     * Kiểm tra rằng báo cáo bán hàng cung cấp tổng hợp chính xác
+     * Validates sales report query logic: provides correct aggregation
      */
     @Test
     @Order(2)
-    @DisplayName("Xác Minh Logic Query Báo Cáo Bán Hàng")
+    @DisplayName("Validate Sales Report Query Logic")
     void validateSalesReportQuery() throws SQLException {
-        logger.info("Test logic query báo cáo bán hàng");
+        logger.info("Testing sales report query logic");
 
-        // Yêu cầu nghiệp vụ: Báo cáo bán hàng phải cung cấp tổng hợp chính xác
+        // Business rule: sales report must provide correct aggregation
         List<OrderDto> salesOrders = orderDao.findForSalesReport(30);
         
         BigDecimal totalRevenue = BigDecimal.ZERO;
         int totalOrderCount = 0;
         
         for (OrderDto order : salesOrders) {
-            // Xác minh rằng chỉ đơn hàng DELIVERED/SHIPPED được bao gồm
+            // Only DELIVERED/SHIPPED orders should be included
             assertTrue(order.getStatus().equals("DELIVERED") || order.getStatus().equals("SHIPPED"),
-                    "Báo cáo bán hàng chỉ nên bao gồm đơn hàng đã giao hoặc đã gửi");
+                    "Sales report must only include delivered or shipped orders");
             
-            // Xác minh tính toàn vẹn dữ liệu đơn hàng
-            assertNotNull(order.getOrderDate(), "Ngày đơn hàng không được null");
+            // Sanity checks
+            assertNotNull(order.getOrderDate(), "Order date must not be null");
             assertTrue(order.getTotalAmount().compareTo(BigDecimal.ZERO) > 0, 
-                    "Tổng tiền phải dương");
+                    "Order total must be positive");
             
             totalRevenue = totalRevenue.add(order.getTotalAmount());
             totalOrderCount++;
         }
         
-        // Xác minh tổng hợp
+        // Verify aggregation
         if (totalOrderCount > 0) {
             BigDecimal averageOrderValue = totalRevenue.divide(
                     new BigDecimal(totalOrderCount), 2, BigDecimal.ROUND_HALF_UP);
             assertTrue(averageOrderValue.compareTo(BigDecimal.ZERO) > 0, 
-                    "Giá trị đơn hàng trung bình phải dương");
+                    "Average order value must be positive");
             
-            logger.info("Xác minh báo cáo bán hàng - Đơn hàng: {} - Doanh thu: {} - Trung bình: {}", 
+            logger.info("Sales report validated - Orders: {} - Revenue: {} - Average: {}", 
                     totalOrderCount, totalRevenue, averageOrderValue);
         }
         
-        // Test hàm tính doanh thu
+        // DAO revenue function
         BigDecimal daoRevenue = orderDao.getTotalRevenue();
         assertTrue(daoRevenue.compareTo(BigDecimal.ZERO) >= 0, 
-                "Tổng doanh thu DAO phải không âm");
+                "DAO total revenue must be non-negative");
 
-        logger.info("Xác minh query báo cáo bán hàng thành công");
+        logger.info("Sales report query validation passed");
     }
 
     /**
-     * Xác minh logic hàm cơ sở dữ liệu
-     * Kiểm tra các hàm tính toán trong cơ sở dữ liệu
+     * Validates database function logic
      */
     @Test
     @Order(3)
-    @DisplayName("Xác Minh Logic Hàm Cơ Sở Dữ Liệu")
+    @DisplayName("Validate Database Function Logic")
     void validateDatabaseFunctionLogic() throws SQLException {
-        logger.info("Test logic hàm cơ sở dữ liệu");
+        logger.info("Testing database function logic");
 
-        // Test hàm tính tổng đơn hàng
+        // Order total function
         Long orderId = testDataSummary.getOrderIds().get(0);
         BigDecimal orderTotal = orderDao.calculateOrderTotal(orderId);
-        assertNotNull(orderTotal, "Hàm tính tổng đơn hàng phải trả về kết quả");
-        assertTrue(orderTotal.compareTo(BigDecimal.ZERO) > 0, "Tổng đơn hàng phải dương");
+        assertNotNull(orderTotal, "Order total function must return a value");
+        assertTrue(orderTotal.compareTo(BigDecimal.ZERO) > 0, "Order total must be positive");
 
-        // Test hàm tính tổng với thuế tùy chỉnh
+        // Custom tax function
         BigDecimal customTaxRate = new BigDecimal("0.10"); // 10%
         BigDecimal orderTotalWithTax = orderDao.calculateOrderTotalWithTax(orderId, customTaxRate);
-        assertNotNull(orderTotalWithTax, "Hàm tính tổng với thuế phải trả về kết quả");
-        assertTrue(orderTotalWithTax.compareTo(orderTotal) > 0, "Tổng với thuế phải lớn hơn tổng gốc");
+        assertNotNull(orderTotalWithTax, "Custom tax function must return a value");
+        assertTrue(orderTotalWithTax.compareTo(orderTotal) > 0, "Total with tax must exceed base total");
 
-        // Test hàm trạng thái thành viên
+        // Loyalty status function
         Long userId = testDataSummary.getUserIds().get(0);
         String loyaltyStatus = orderDao.getUserLoyaltyStatus(userId);
-        assertNotNull(loyaltyStatus, "Trạng thái thành viên không được null");
+        assertNotNull(loyaltyStatus, "Loyalty status must not be null");
         assertTrue(loyaltyStatus.matches("BRONZE|SILVER|GOLD|PLATINUM"), 
-                "Trạng thái thành viên phải hợp lệ");
+                "Loyalty status must be valid");
 
-        logger.info("Xác minh logic hàm cơ sở dữ liệu thành công");
+        logger.info("Database function logic validation passed");
     }
 
     // ===============================
-    // PHƯƠNG THỨC HỖ TRỢ
+    // SUPPORT METHODS
     // ===============================
 
     /**
-     * Thiết lập dữ liệu test bổ sung cho việc xác minh query
-     * Tạo các đơn hàng với trạng thái cụ thể để test
+     * Sets up additional test data for query validation.
+     * Creates orders with specific statuses for testing.
      */
     private void setupAdditionalTestData() throws SQLException {
-        logger.info("Thiết lập dữ liệu test bổ sung cho việc xác minh query");
+        logger.info("Setting up additional test data for query validation");
         
-        // Tạo các đơn hàng test cụ thể với trạng thái đã biết để test
+        // Create specific test orders with known statuses
         if (!testDataSummary.getUserIds().isEmpty()) {
             Long userId = testDataSummary.getUserIds().get(0);
             
@@ -257,6 +248,6 @@ public class QueryValidationTest {
             orderDao.create(pendingOrder);
         }
         
-        logger.info("Thiết lập dữ liệu test bổ sung hoàn tất");
+        logger.info("Finished setting up additional test data");
     }
 } 
